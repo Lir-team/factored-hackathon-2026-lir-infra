@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (git-ignored: it holds team emails) and fill in real values.
+
+project_id          = "lir-agent"
+project_name        = "lir-agent"
+organization_id     = "000000000000"
+folder_display_name = "lir"
+billing_account     = "000000-000000-000000"
+region              = "us-east1"
+
+# Additive project roles per Google account. roles/editor lets teammates view and use
+# every resource without managing IAM; replace it with narrower roles if preferred.
+team_members = {
+  "teammate.one@example.com" = ["roles/editor"]
+  "teammate.two@example.com" = ["roles/editor"]
+}

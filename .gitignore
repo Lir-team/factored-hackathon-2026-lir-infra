@@ -1,0 +1,13 @@
+# Provider plugins and local state
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+
+# Real values: team emails and backend settings. The *.example files are committed.
+terraform.tfvars
+*.auto.tfvars
+backend.hcl
+
+# The dependency lock file IS committed: .terraform.lock.hcl
