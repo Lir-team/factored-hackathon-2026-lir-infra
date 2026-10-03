@@ -47,6 +47,12 @@ variable "enabled_apis" {
     "iam.googleapis.com",
     "orgpolicy.googleapis.com",
     "serviceusage.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "iap.googleapis.com",
+    "run.googleapis.com",
+    "secretmanager.googleapis.com",
+    "storage.googleapis.com",
   ]
 }
 
@@ -72,4 +78,68 @@ variable "team_members" {
     condition     = alltrue([for roles in values(var.team_members) : !contains(roles, "roles/owner")])
     error_message = "roles/owner is not granted through Terraform; keep ownership with the project creator."
   }
+}
+
+# ---- agent service -----------------------------------------------------------------------
+
+variable "artifact_repository_id" {
+  description = "Artifact Registry Docker repository for the team's images."
+  type        = string
+  default     = "lir"
+}
+
+variable "agent_service_name" {
+  description = "Cloud Run service that serves the agent HTTP API."
+  type        = string
+  default     = "lir-agent"
+}
+
+variable "agent_image" {
+  description = <<-EOT
+    Full image reference of the agent (REGION-docker.pkg.dev/PROJECT/REPO/lir-agent:TAG).
+    Empty skips the Cloud Run service, so secrets and the registry can be prepared first.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "agent_max_instances" {
+  description = "Upper bound of agent instances. Sessions live in memory, so keep 1 until they move to Firestore."
+  type        = number
+  default     = 1
+}
+
+variable "llm_model" {
+  description = "LiteLLM model string the agent converses with."
+  type        = string
+  default     = "openai/gpt-4o"
+}
+
+variable "agent_store" {
+  description = "Data source: auto (DuckDB over staging in the bucket, else the demo fixture), duckdb or fixture."
+  type        = string
+  default     = "auto"
+
+  validation {
+    condition     = contains(["auto", "duckdb", "fixture"], var.agent_store)
+    error_message = "agent_store must be auto, duckdb or fixture."
+  }
+}
+
+variable "reference_date" {
+  description = "Date the agent treats as today (YYYY-MM-DD) to replay a static data snapshot. Empty: current date."
+  type        = string
+  default     = ""
+}
+
+variable "jev_enabled" {
+  description = "Use Jev (Cloudflare Workers AI) for typed decisions; needs the Cloudflare secrets."
+  type        = bool
+  default     = false
+}
+
+variable "iap_members" {
+  description = "Google accounts allowed through IAP to the agent API, in addition to team_members."
+  type        = list(string)
+  default     = []
 }
