@@ -138,6 +138,23 @@ variable "jev_enabled" {
   default     = false
 }
 
+variable "decisions" {
+  description = "Typed decisions: default (Jev when jev_enabled, else the keyword baseline) or llm."
+  type        = string
+  default     = "default"
+
+  validation {
+    condition     = contains(["default", "llm"], var.decisions)
+    error_message = "decisions must be default or llm."
+  }
+}
+
+variable "decision_llm_model" {
+  description = "LiteLLM model for decisions = llm (e.g. openrouter/typesafe/jev-router). Empty reuses llm_model."
+  type        = string
+  default     = ""
+}
+
 variable "iap_members" {
   description = "Google accounts allowed through IAP to the agent API, in addition to team_members."
   type        = list(string)

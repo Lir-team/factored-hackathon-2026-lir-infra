@@ -11,6 +11,7 @@ locals {
     cloudflare_api_token  = "cloudflare-api-token"
     aws_access_key_id     = "aws-access-key-id"
     aws_secret_access_key = "aws-secret-access-key"
+    openrouter_api_key    = "openrouter-api-key"
   }
 
   agent_secret_env = merge(
@@ -22,6 +23,9 @@ locals {
       CLOUDFLARE_ACCOUNT_ID = "cloudflare_account_id"
       CLOUDFLARE_API_TOKEN  = "cloudflare_api_token"
     } : {},
+    startswith(var.decision_llm_model, "openrouter/") ? {
+      OPENROUTER_API_KEY = "openrouter_api_key"
+    } : {},
   )
 
   agent_env = merge(
@@ -32,7 +36,9 @@ locals {
       LLM_API_BASE = ""
       STORE        = var.agent_store
       JEV_ENABLED  = var.jev_enabled ? "1" : "0"
+      DECISIONS    = var.decisions
     },
+    var.decision_llm_model == "" ? {} : { DECISION_LLM_MODEL = var.decision_llm_model },
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
   )
 
@@ -155,7 +161,7 @@ resource "google_cloud_run_v2_service" "agent" {
 
       startup_probe {
         http_get {
-          path = "/healthz"
+          path = "/health"
         }
       }
     }
