@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 6.0"
     }
+    # IAP directly on Cloud Run (iap_enabled) is only in the beta provider.
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 6.0"
+    }
   }
 
   # Shared remote state. The bucket is passed at init time so it is not hardcoded:
@@ -14,6 +19,11 @@ terraform {
 }
 
 provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+provider "google-beta" {
   project = var.project_id
   region  = var.region
 }

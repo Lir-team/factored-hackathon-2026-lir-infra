@@ -13,3 +13,11 @@ team_members = {
   "teammate.one@example.com" = ["roles/editor"]
   "teammate.two@example.com" = ["roles/editor"]
 }
+
+# Agent service: image built with app/lir-agent/cloudbuild.yaml. Empty skips the service.
+agent_image = ""
+# llm_model          = "openai/gpt-4o"
+# agent_store        = "auto"
+# jev_enabled        = false
+# decisions          = "default"
+# decision_llm_model = "openrouter/typesafe/jev-router"
