@@ -86,3 +86,8 @@ output "deploy_service_account" {
   description = "Service account CI impersonates to build and deploy (GitHub variable DEPLOY_SA)."
   value       = google_service_account.deploy.email
 }
+
+output "pipeline_job" {
+  description = "Cloud Run job of the data pipeline. Empty until pipeline_image is set."
+  value       = local.pipeline_deploy ? google_cloud_run_v2_job.pipeline[0].name : ""
+}

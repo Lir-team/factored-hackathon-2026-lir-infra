@@ -16,6 +16,7 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Operator API | Cloud Run service `lir-agent` behind IAP, runtime account `lir-agent-run`, data lake bucket `<project>-data` mounted read-only at `/mnt/data` | `agent.tf` |
 | Secrets | Secret Manager containers only: values are added by hand (see [Secrets](#secrets)) | `agent.tf` |
 | Case store | Firestore `(default)` database (native mode, delete protection on) with TTL on `expires_at` of `lir_claims` and `lir_start_tokens` | `firestore.tf` |
+| Data pipeline | Cloud Run job `lir-pipeline` (S3 → staging/curated in the data lake bucket), runtime account `lir-pipeline-run`, only writer of the data bucket | `pipeline.tf` |
 | Cases inbox | Bucket `<project>-cases`: the archive of every accepted case (`cases/<case_id>.json`) | `cases.tf` |
 | Case flow service | Cloud Run service `lir-agent-cases` (same image, no IAP), runtime account `lir-agent-cases-run` | `cases.tf` |
 | Case queue | Topic `lir-cases`, push subscription `lir-cases-push` (signed as `lir-pubsub-push`), dead-letter topic and subscription `lir-cases-dead-letter` | `pubsub.tf` |
@@ -73,8 +74,6 @@ tfvars file holds team emails, the organization id and the billing account.
 
 Notes for the next apply:
 
-- The AWS secrets (`aws-access-key-id`, `aws-secret-access-key`) were never read by the
-  agent and are no longer declared: the plan **destroys both containers and their values**.
 - Newly enabled APIs can take a minute to propagate. If a resource fails right after its
   API was enabled, run `terraform apply` again.
 - If the project already has a Firestore `(default)` database, import it instead of
@@ -97,6 +96,8 @@ printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --pro
 | `openrouter-api-key` | `OPENROUTER_API_KEY` | `lir-agent`, `lir-agent-cases` | `decision_llm_model` starts with `openrouter/` | OpenRouter → Keys |
 | `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare dashboard → account id |
 | `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
+| `aws-access-key-id` | `AWS_ACCESS_KEY_ID` | `lir-pipeline` job | data pipeline | Data dictionary of the organizers (never commit it) |
+| `aws-secret-access-key` | `AWS_SECRET_ACCESS_KEY` | `lir-pipeline` job | data pipeline | Data dictionary of the organizers (never commit it) |
 | `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent-cases` | always | BotFather → `/newbot` or `/token` |
 | `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent-cases` | always | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
 

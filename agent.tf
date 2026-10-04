@@ -10,6 +10,9 @@ locals {
     cloudflare_account_id = "cloudflare-account-id"
     cloudflare_api_token  = "cloudflare-api-token"
     openrouter_api_key    = "openrouter-api-key"
+    # Organizers' S3 bucket, read by the data pipeline job (pipeline.tf).
+    aws_access_key_id     = "aws-access-key-id"
+    aws_secret_access_key = "aws-secret-access-key"
     # Telegram channel of the case flow: the BotFather token and the setWebhook secret_token.
     telegram_bot_token      = "telegram-bot-token"
     telegram_webhook_secret = "telegram-webhook-secret"

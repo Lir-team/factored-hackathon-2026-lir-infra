@@ -255,3 +255,41 @@ variable "analytics_views_enabled" {
   type        = bool
   default     = false
 }
+
+# ---- data pipeline -----------------------------------------------------------------------
+
+variable "pipeline_job_name" {
+  description = "Cloud Run job that runs the data pipeline and publishes the data lake."
+  type        = string
+  default     = "lir-pipeline"
+}
+
+variable "pipeline_image" {
+  description = "Image of the data pipeline (built with data/cloudbuild.yaml). Empty skips the job."
+  type        = string
+  default     = ""
+}
+
+variable "pipeline_aws_region" {
+  description = "Region of the organizers' S3 bucket."
+  type        = string
+  default     = "us-east-2"
+}
+
+variable "pipeline_cpu" {
+  description = "vCPUs of the pipeline task."
+  type        = string
+  default     = "4"
+}
+
+variable "pipeline_memory" {
+  description = "Memory of the pipeline task (the in-memory filesystem holds raw/ and outputs)."
+  type        = string
+  default     = "8Gi"
+}
+
+variable "pipeline_timeout" {
+  description = "Maximum duration of one pipeline run."
+  type        = string
+  default     = "3600s"
+}
