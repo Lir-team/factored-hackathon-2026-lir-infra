@@ -1,5 +1,9 @@
 # Public entry of the case flow: API Gateway in front of the cases service.
-#   POST /v1/cases          lir-web form, requires the API key (?key=)
+#   POST /v1/cases          lir-web form, requires the API key (?key=) and, with
+#                           customer_sign_in, the customer's JWT
+#   GET  /v1/approvals/{id} and POST /v1/approvals/{id}/decision
+#                           the approval card (single-use link token; with customer_sign_in,
+#                           the customer's JWT too: step-up)
 #   POST /channels/telegram Telegram webhook, authenticated by the agent's secret_token check
 # Nothing else of the service is exposed. The gateway calls the service as lir-gateway.
 
@@ -34,6 +38,12 @@ resource "google_api_gateway_api_config" "cases" {
         title           = "Lir case flow"
         managed_service = google_api_gateway_api.cases.managed_service
         backend_address = google_cloud_run_v2_service.cases[0].uri
+        # API Gateway verifies the customer's JWT and forwards its claims to the service in
+        # X-Apigateway-Api-Userinfo; the agent reads the customer id from `sub`.
+        customer_sign_in = var.customer_sign_in
+        jwt_issuer       = local.customer_jwt_issuer
+        jwt_jwks_uri     = local.customer_jwt_jwks_uri
+        jwt_audience     = var.customer_jwt_audience
       }))
     }
   }

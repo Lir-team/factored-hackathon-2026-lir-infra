@@ -91,3 +91,8 @@ output "pipeline_job" {
   description = "Cloud Run job of the data pipeline. Empty until pipeline_image is set."
   value       = local.pipeline_deploy ? google_cloud_run_v2_job.pipeline[0].name : ""
 }
+
+output "customer_jwt_issuer" {
+  description = "Issuer (and signer) of demo customer JWTs: scripts/issue-demo-token.sh signs as it."
+  value       = local.customer_jwt_issuer
+}

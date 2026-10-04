@@ -30,6 +30,17 @@ securityDefinitions:
     type: apiKey
     name: key
     in: query
+%{ if customer_sign_in ~}
+  # The customer's JWT from the bank's sign-in (Authorization: Bearer). API Gateway verifies
+  # it against the issuer's published keys and forwards its claims to the service.
+  customer_jwt:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: ""
+    x-google-issuer: "${jwt_issuer}"
+    x-google-jwks_uri: "${jwt_jwks_uri}"
+    x-google-audiences: "${jwt_audience}"
+%{ endif ~}
 
 paths:
   /v1/cases:
@@ -38,6 +49,9 @@ paths:
       summary: File a case from the lir-web form.
       security:
         - api_key: []
+%{ if customer_sign_in ~}
+          customer_jwt: []
+%{ endif ~}
       responses:
         "202":
           description: Case accepted; the body carries the folio and the Telegram start link.
@@ -46,6 +60,56 @@ paths:
     options:
       operationId: submitCasePreflight
       summary: CORS preflight, answered by the service (no API key, browsers send none).
+      responses:
+        "200":
+          description: CORS headers for the allowed origins.
+  # Approval card (human in the loop): the single-use link token travels in
+  # X-Approval-Token; with customer_sign_in, the customer must also be signed in (step-up).
+  /v1/approvals/{approval_id}:
+    parameters:
+      - name: approval_id
+        in: path
+        required: true
+        type: string
+    get:
+      operationId: getApproval
+      summary: The approval card behind a customer's single-use link.
+%{ if customer_sign_in ~}
+      security:
+        - customer_jwt: []
+%{ endif ~}
+      responses:
+        "200":
+          description: The request, in the customer's language.
+        default:
+          description: Error answered by the agent.
+    options:
+      operationId: getApprovalPreflight
+      summary: CORS preflight, answered by the service.
+      responses:
+        "200":
+          description: CORS headers for the allowed origins.
+  /v1/approvals/{approval_id}/decision:
+    parameters:
+      - name: approval_id
+        in: path
+        required: true
+        type: string
+    post:
+      operationId: decideApproval
+      summary: The customer approves or rejects from the approval card.
+%{ if customer_sign_in ~}
+      security:
+        - customer_jwt: []
+%{ endif ~}
+      responses:
+        "200":
+          description: The decision, and what ran.
+        default:
+          description: Error answered by the agent.
+    options:
+      operationId: decideApprovalPreflight
+      summary: CORS preflight, answered by the service.
       responses:
         "200":
           description: CORS headers for the allowed origins.

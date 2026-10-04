@@ -235,6 +235,24 @@ variable "cases_max_instances" {
   default     = 1
 }
 
+variable "customer_sign_in" {
+  description = "Require the customer's JWT (mock bank sign-in, identity.tf) on the case flow: filing cases and approving actions (SEC-01, SEC-04)."
+  type        = bool
+  default     = false
+}
+
+variable "customer_jwt_audience" {
+  description = "Audience (aud) of the customer JWTs the gateway accepts."
+  type        = string
+  default     = "lir-web"
+}
+
+variable "approval_link_template" {
+  description = "lir-web approval card link, e.g. https://web.example/aprobar.html?id={approval_id}&t={token}. Empty: no web link."
+  type        = string
+  default     = ""
+}
+
 variable "cors_origins" {
   description = "Comma-separated browser origins allowed to call the case flow (lir-web)."
   type        = string

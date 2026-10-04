@@ -103,6 +103,26 @@ printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --pro
 
 `terraform output secrets` lists every container.
 
+## Customer sign-in (SEC-01) and step-up approvals (SEC-04)
+
+The bank's sign-in is mocked with a service account as identity provider (`identity.tf`):
+Google publishes its public keys, API Gateway verifies the customer JWTs it signs, and team
+members mint demo tokens through the IAM API, without downloading any key:
+
+```bash
+scripts/issue-demo-token.sh CLI-DEMO-001        # prints a JWT for that customer (60 min)
+```
+
+Set `customer_sign_in = true` to enforce it:
+
+| Route | Without sign-in | With `customer_sign_in` |
+|---|---|---|
+| `POST /v1/cases` | API key; the payload's `customer_id` is trusted | API key **and** the customer's JWT; the customer comes from the token (`REQUIRE_IDENTITY=true`) |
+| `GET /v1/approvals/{id}`, `POST .../decision` | the single-use link token | the link token **and** the JWT of that same customer (`APPROVAL_REQUIRES_SIGN_IN=true`); Telegram only links to the card |
+
+Paste the token into lir-web's `js/config.js` as `authToken`. Set `approval_link_template`
+to the `https` URL of lir-web's `aprobar.html` so Telegram can link to the card.
+
 ## Case flow
 
 `lir-web` files a case, Pub/Sub carries it to the agent and the customer continues on

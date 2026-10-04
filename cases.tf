@@ -40,10 +40,13 @@ locals {
   cases_env = merge(
     local.agent_env,
     {
-      # No customer login yet: the payload's customer_id is trusted, and the gateway's API
-      # key on /v1/cases is what stops abuse. The service is only reachable through the
-      # gateway and Pub/Sub (run.invoker), so the operator routes stay closed.
-      REQUIRE_IDENTITY = "false"
+      # With customer_sign_in the gateway verifies the customer's JWT and the service
+      # takes the customer from it, never from the payload (SEC-01); approvals then need
+      # that sign-in too (step-up, SEC-04). Without it the payload's customer_id is trusted
+      # and the API key on /v1/cases is what stops abuse. The service is only reachable
+      # through the gateway and Pub/Sub (run.invoker), so the operator routes stay closed.
+      REQUIRE_IDENTITY          = var.customer_sign_in ? "true" : "false"
+      APPROVAL_REQUIRES_SIGN_IN = var.customer_sign_in ? "true" : "false"
       # lir-web runs on a laptop; the gateway passes CORS through (allowCors) to the service.
       CORS_ORIGINS = var.cors_origins
 
@@ -62,6 +65,8 @@ locals {
       FIRESTORE_COLLECTION_PREFIX = var.firestore_collection_prefix
     },
     var.telegram_bot_username == "" ? {} : { TELEGRAM_BOT_USERNAME = var.telegram_bot_username },
+    # Link to the approval card in lir-web; Telegram only opens https links from a button.
+    var.approval_link_template == "" ? {} : { APPROVAL_LINK_TEMPLATE = var.approval_link_template },
   )
 
   # The Telegram secrets are mounted only once they hold a version (telegram_enabled);
