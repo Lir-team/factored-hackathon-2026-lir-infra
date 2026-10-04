@@ -49,6 +49,7 @@ locals {
     # Operator API behind IAP only: return how each turn was decided with the reply.
     var.expose_trace ? { EXPOSE_TRACE = "true" } : {},
     var.public_base_url == "" ? {} : { PUBLIC_BASE_URL = var.public_base_url },
+    var.slack_assignees == "" ? {} : { SLACK_ASSIGNEES = var.slack_assignees },
     # Examples in the API docs: a customer that exists in the data the service reads.
     var.api_example_customer_id == "" ? {} : { API_EXAMPLE_CUSTOMER_ID = var.api_example_customer_id },
     var.api_example_message == "" ? {} : { API_EXAMPLE_MESSAGE = var.api_example_message },
