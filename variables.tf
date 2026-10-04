@@ -139,6 +139,12 @@ variable "agent_store" {
   }
 }
 
+variable "expose_trace" {
+  description = "Return each turn's trace (decision model, probabilities, lanes, cost) with the reply. Safe only behind IAP."
+  type        = bool
+  default     = false
+}
+
 variable "reference_date" {
   description = "Date the agent treats as today (YYYY-MM-DD) to replay a static data snapshot. Empty: current date."
   type        = string
