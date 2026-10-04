@@ -13,6 +13,7 @@ locals {
     # Organizers' S3 bucket, read by the data pipeline job (pipeline.tf).
     aws_access_key_id     = "aws-access-key-id"
     aws_secret_access_key = "aws-secret-access-key"
+    slack_webhook_url     = "slack-webhook-url"
     # Telegram channel of the case flow: the BotFather token and the setWebhook secret_token.
     telegram_bot_token      = "telegram-bot-token"
     telegram_webhook_secret = "telegram-webhook-secret"
@@ -27,6 +28,7 @@ locals {
       CLOUDFLARE_ACCOUNT_ID = "cloudflare_account_id"
       CLOUDFLARE_API_TOKEN  = "cloudflare_api_token"
     } : {},
+    var.slack_enabled ? { SLACK_WEBHOOK_URL = "slack_webhook_url" } : {},
     startswith(var.decision_llm_model, "openrouter/") ? {
       OPENROUTER_API_KEY = "openrouter_api_key"
     } : {},
@@ -46,6 +48,7 @@ locals {
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
     # Operator API behind IAP only: return how each turn was decided with the reply.
     var.expose_trace ? { EXPOSE_TRACE = "true" } : {},
+    var.public_base_url == "" ? {} : { PUBLIC_BASE_URL = var.public_base_url },
     # Examples in the API docs: a customer that exists in the data the service reads.
     var.api_example_customer_id == "" ? {} : { API_EXAMPLE_CUSTOMER_ID = var.api_example_customer_id },
     var.api_example_message == "" ? {} : { API_EXAMPLE_MESSAGE = var.api_example_message },

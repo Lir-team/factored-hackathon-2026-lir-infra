@@ -157,6 +157,18 @@ variable "api_example_message" {
   default     = ""
 }
 
+variable "slack_enabled" {
+  description = "Post a Slack notice per handoff; needs a version in the slack-webhook-url secret."
+  type        = bool
+  default     = false
+}
+
+variable "public_base_url" {
+  description = "Public URL of the agent service, for the case file link in the Slack notice."
+  type        = string
+  default     = ""
+}
+
 variable "reference_date" {
   description = "Date the agent treats as today (YYYY-MM-DD) to replay a static data snapshot. Empty: current date."
   type        = string
