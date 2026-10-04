@@ -52,3 +52,27 @@ output "firestore_database" {
   description = "Firestore database of the case store (the agent's FIRESTORE_DATABASE)."
   value       = google_firestore_database.default.name
 }
+
+output "cases_gateway_url" {
+  description = "Public URL of the case flow (lir-web casesEndpoint base, Telegram webhook base)."
+  value       = local.deploy ? "https://${google_api_gateway_gateway.cases[0].default_hostname}" : ""
+}
+
+output "cases_service_url" {
+  description = "Cloud Run URL of the case flow service (invokers only: gateway and Pub/Sub)."
+  value       = local.deploy ? google_cloud_run_v2_service.cases[0].uri : ""
+}
+
+output "cases_api_key" {
+  description = "API key lir-web sends as ?key= on POST /v1/cases."
+  value       = google_apikeys_key.cases.key_string
+  sensitive   = true
+}
+
+output "cases_topics" {
+  description = "Pub/Sub topics of the case queue and its dead letters."
+  value = {
+    cases       = google_pubsub_topic.cases.name
+    dead_letter = google_pubsub_topic.cases_dead_letter.name
+  }
+}

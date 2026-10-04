@@ -17,9 +17,13 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Secrets | Secret Manager containers only: values are added by hand (see [Secrets](#secrets)) | `agent.tf` |
 | Case store | Firestore `(default)` database (native mode, delete protection on) with TTL on `expires_at` of `lir_claims` and `lir_start_tokens` | `firestore.tf` |
 | Cases inbox | Bucket `<project>-cases`: the archive of every accepted case (`cases/<case_id>.json`) | `cases.tf` |
+| Case flow service | Cloud Run service `lir-agent-cases` (same image, no IAP), runtime account `lir-agent-cases-run` | `cases.tf` |
+| Case queue | Topic `lir-cases`, push subscription `lir-cases-push` (signed as `lir-pubsub-push`), dead-letter topic and subscription `lir-cases-dead-letter` | `pubsub.tf` |
+| Public gateway | API Gateway `lir-cases` (spec in `openapi/cases.yaml.tftpl`), backend account `lir-gateway`, API key `lir-cases-web` | `gateway.tf` |
 
-The Cloud Run service is only created once `agent_image` is set, so the registry and the
-secrets can be prepared first.
+The Cloud Run services, the push subscription and the gateway are only created once
+`agent_image` is set, so the registry and the secrets can be prepared first. After that,
+Terraform ignores the image: new images are deployed with `gcloud run deploy`.
 
 ## Prerequisites
 
@@ -59,8 +63,9 @@ terraform plan -out=lir.tfplan                  # read it before applying
 terraform apply lir.tfplan
 ```
 
-Then add the value of every secret the services read (next section). A Cloud Run revision
-that mounts a secret without a version fails to start.
+Add the value of every secret the services read (next section) **before** the apply that
+creates the services: a Cloud Run revision that mounts a secret without a version fails
+to start. The first apply can run with `agent_image = ""` to create the containers.
 
 `terraform.tfvars` and `backend.hcl` are git-ignored: the repository is public and the
 tfvars file holds team emails, the organization id and the billing account.
@@ -87,14 +92,53 @@ printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --pro
 
 | Secret id | Env var | Read by | Needed when | How to get the value |
 |---|---|---|---|---|
-| `openai-api-key` | `LLM_API_KEY`, `OPENAI_API_KEY` | `lir-agent` | always | OpenAI dashboard → API keys |
-| `openrouter-api-key` | `OPENROUTER_API_KEY` | `lir-agent` | `decision_llm_model` starts with `openrouter/` | OpenRouter → Keys |
-| `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | `lir-agent` | `jev_enabled = true` | Cloudflare dashboard → account id |
-| `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
-| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | case flow service (not deployed yet) | case flow | BotFather → `/newbot` or `/token` |
-| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | case flow service (not deployed yet) | case flow | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
+| `openai-api-key` | `LLM_API_KEY`, `OPENAI_API_KEY` | `lir-agent`, `lir-agent-cases` | always | OpenAI dashboard → API keys |
+| `openrouter-api-key` | `OPENROUTER_API_KEY` | `lir-agent`, `lir-agent-cases` | `decision_llm_model` starts with `openrouter/` | OpenRouter → Keys |
+| `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare dashboard → account id |
+| `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
+| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent-cases` | always | BotFather → `/newbot` or `/token` |
+| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent-cases` | always | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
 
 `terraform output secrets` lists every container.
+
+## Case flow
+
+`lir-web` files a case, Pub/Sub carries it to the agent and the customer continues on
+Telegram (see `docs/architecture/case-flow.md` in the agent repository).
+
+| Route | Through | Auth |
+|---|---|---|
+| `POST <cases_gateway_url>/v1/cases` | API Gateway → `lir-agent-cases` | API key in `?key=`; CORS for `cors_origins` answered by the service |
+| `POST <cases_gateway_url>/channels/telegram` | API Gateway → `lir-agent-cases` | Telegram's `X-Telegram-Bot-Api-Secret-Token`, checked by the agent |
+| `POST <cases_service_url>/pubsub/push` | Pub/Sub push subscription `lir-cases-push` | OIDC token of `lir-pubsub-push` for audience `lir-agent-cases-pubsub-push` |
+
+Only `lir-gateway` and `lir-pubsub-push` can invoke the service; it runs with
+`REQUIRE_IDENTITY=false`, so the form's `customer_id` is trusted (testers switch customers
+freely) and the API key is what stops abuse. A case that fails 5 deliveries goes to
+`lir-cases-dead-letter`; read it with
+`gcloud pubsub subscriptions pull lir-cases-dead-letter --limit 10 --project lir-agent`.
+
+After the apply that creates the gateway:
+
+1. Read the API key and the gateway URL for `lir-web`:
+
+   ```bash
+   terraform output -raw cases_api_key
+   terraform output -raw cases_gateway_url
+   ```
+
+2. Point the Telegram bot at the gateway (once, and again if the gateway URL or the secret
+   changes):
+
+   ```bash
+   TOKEN=$(gcloud secrets versions access latest --secret telegram-bot-token --project lir-agent)
+   SECRET=$(gcloud secrets versions access latest --secret telegram-webhook-secret --project lir-agent)
+   curl -s "https://api.telegram.org/bot$TOKEN/setWebhook" \
+     -d url="$(terraform output -raw cases_gateway_url)/channels/telegram" \
+     -d secret_token="$SECRET"
+   ```
+
+   Set `telegram_bot_username` (without `@`) so the `202` answer carries the start link.
 
 ## Organization notes
 

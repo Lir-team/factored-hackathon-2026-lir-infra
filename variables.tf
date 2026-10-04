@@ -59,6 +59,7 @@ variable "enabled_apis" {
     "apigateway.googleapis.com",
     "servicemanagement.googleapis.com",
     "servicecontrol.googleapis.com",
+    "apikeys.googleapis.com",
     # Workload Identity Federation for CI deploys.
     "sts.googleapis.com",
     "iamcredentials.googleapis.com",
@@ -189,6 +190,35 @@ variable "cases_retention_days" {
   validation {
     condition     = var.cases_retention_days >= 0
     error_message = "cases_retention_days must be 0 (keep forever) or a positive number of days."
+  }
+}
+
+variable "cases_service_name" {
+  description = "Cloud Run service of the case flow (same image as agent_service_name, no IAP)."
+  type        = string
+  default     = "lir-agent-cases"
+}
+
+variable "cases_max_instances" {
+  description = "Upper bound of case flow instances. ADK sessions live in memory, so keep 1."
+  type        = number
+  default     = 1
+}
+
+variable "cors_origins" {
+  description = "Comma-separated browser origins allowed to call the case flow (lir-web)."
+  type        = string
+  default     = "http://localhost:5500"
+}
+
+variable "telegram_bot_username" {
+  description = "Telegram bot username without \"@\", for the start link in the 202 answer. Empty: no link."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !startswith(var.telegram_bot_username, "@")
+    error_message = "telegram_bot_username goes without the leading \"@\"."
   }
 }
 

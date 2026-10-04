@@ -1,0 +1,60 @@
+# OpenAPI 2.0 spec of the case flow gateway, rendered by gateway.tf.
+swagger: "2.0"
+info:
+  title: ${title}
+  description: Public entry of the Lir case flow (lir-web form and Telegram webhook).
+  version: "1.0.0"
+schemes:
+  - https
+produces:
+  - application/json
+
+# allowCors passes CORS requests, preflights included, through to the service, which
+# answers them for CORS_ORIGINS. The name must be the API's managed service.
+x-google-endpoints:
+  - name: ${managed_service}
+    allowCors: true
+
+# Every route goes to the cases service, signed with an ID token of the gateway's service
+# account (the service only admits invokers). The path is appended to the address.
+x-google-backend:
+  address: ${backend_address}
+  jwt_audience: ${backend_address}
+  path_translation: APPEND_PATH_TO_ADDRESS
+  # The Telegram webhook runs an agent turn (an LLM call) before answering.
+  deadline: 60.0
+
+securityDefinitions:
+  # lir-web sends the key as ?key=<cases_api_key>.
+  api_key:
+    type: apiKey
+    name: key
+    in: query
+
+paths:
+  /v1/cases:
+    post:
+      operationId: submitCase
+      summary: File a case from the lir-web form.
+      security:
+        - api_key: []
+      responses:
+        "202":
+          description: Case accepted; the body carries the folio and the Telegram start link.
+        default:
+          description: Error answered by the agent.
+    options:
+      operationId: submitCasePreflight
+      summary: CORS preflight, answered by the service (no API key, browsers send none).
+      responses:
+        "200":
+          description: CORS headers for the allowed origins.
+  /channels/telegram:
+    post:
+      operationId: telegramWebhook
+      summary: Telegram Bot API webhook; the agent checks X-Telegram-Bot-Api-Secret-Token.
+      responses:
+        "200":
+          description: Update handled.
+        default:
+          description: Error answered by the agent; Telegram retries the update.
