@@ -53,6 +53,8 @@ variable "enabled_apis" {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
+    "bigquery.googleapis.com",
+    "logging.googleapis.com",
   ]
 }
 
@@ -159,4 +161,24 @@ variable "iap_members" {
   description = "Google accounts allowed through IAP to the agent API, in addition to team_members."
   type        = list(string)
   default     = []
+}
+
+# ---- analytics ---------------------------------------------------------------------------
+
+variable "analytics_dataset_id" {
+  description = "BigQuery dataset with the audit trail and the evaluation trials."
+  type        = string
+  default     = "lir_analytics"
+}
+
+variable "analytics_location" {
+  description = "Location of the analytics dataset."
+  type        = string
+  default     = "us-east1"
+}
+
+variable "analytics_views_enabled" {
+  description = "Create the analytics views; enable after the sink has exported its first entry."
+  type        = bool
+  default     = false
 }

@@ -175,6 +175,12 @@ resource "google_cloud_run_v2_service" "agent" {
     }
   }
 
+  lifecycle {
+    # Service-level scaling is filled by the API with zero defaults (instances are bounded
+    # in template.scaling); ignoring it keeps plans free of no-op diffs.
+    ignore_changes = [scaling]
+  }
+
   depends_on = [
     google_secret_manager_secret_iam_member.agent,
     google_storage_bucket_iam_member.agent_reads_data,
