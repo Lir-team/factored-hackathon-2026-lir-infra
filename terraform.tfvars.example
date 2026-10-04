@@ -21,3 +21,7 @@ agent_image = ""
 # jev_enabled        = false
 # decisions          = "default"
 # decision_llm_model = "openrouter/typesafe/jev-router"
+
+# Case flow storage.
+# firestore_collection_prefix = "lir_"
+# cases_retention_days        = 0   # 0 keeps archived cases forever
