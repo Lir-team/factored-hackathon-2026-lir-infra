@@ -20,6 +20,7 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Case flow service | Cloud Run service `lir-agent-cases` (same image, no IAP), runtime account `lir-agent-cases-run` | `cases.tf` |
 | Case queue | Topic `lir-cases`, push subscription `lir-cases-push` (signed as `lir-pubsub-push`), dead-letter topic and subscription `lir-cases-dead-letter` | `pubsub.tf` |
 | Public gateway | API Gateway `lir-cases` (spec in `openapi/cases.yaml.tftpl`), backend account `lir-gateway`, API key `lir-cases-web` | `gateway.tf` |
+| CI deploys | Workload Identity pool `github` with provider `lir-team` (agent repository, `main` only), deploy account `lir-deploy` | `ci.tf` |
 
 The Cloud Run services, the push subscription and the gateway are only created once
 `agent_image` is set, so the registry and the secrets can be prepared first. After that,
@@ -140,13 +141,41 @@ After the apply that creates the gateway:
 
    Set `telegram_bot_username` (without `@`) so the `202` answer carries the start link.
 
+## Deploy flow
+
+Image deploys never need `terraform apply`. On every push to `main` of the agent
+repository, GitHub Actions:
+
+1. exchanges its OIDC token for `lir-deploy` through the `github` pool (`google-github-actions/auth`
+   with `WIF_PROVIDER` and `DEPLOY_SA`); tokens from other repositories or branches are rejected;
+2. builds the image with `gcloud builds submit` as `BUILD_SA`, staging the source in
+   `BUILD_BUCKET` and pushing to `<GCP_REGION>-docker.pkg.dev/<GCP_PROJECT_ID>/<AR_REPO>`;
+3. rolls it out with `gcloud run deploy <service> --image ...` to `lir-agent` and
+   `lir-agent-cases`. Terraform ignores the image, so the next apply keeps it.
+
+`lir-deploy` can create builds, stream their logs, upload build sources, act as
+`lir-build` and both runtime accounts, read images and deploy revisions
+(`roles/run.developer` on the two services only). It cannot change IAM.
+
+Set these **repository variables** in GitHub (Settings → Secrets and variables → Actions →
+Variables) on the agent repository; none of them is secret:
+
+| Variable | Value |
+|---|---|
+| `GCP_PROJECT_ID` | `lir-agent` |
+| `GCP_REGION` | `us-east1` (`region`) |
+| `WIF_PROVIDER` | `terraform output -raw wif_provider` |
+| `DEPLOY_SA` | `terraform output -raw deploy_service_account` |
+| `AR_REPO` | `lir` (`artifact_repository_id`) |
+| `BUILD_SA` | `terraform output -raw build_service_account` |
+| `BUILD_BUCKET` | `terraform output -raw build_source_bucket` |
+
 ## Organization notes
 
 - The organization allows members from any domain (`iam.allowedPolicyMemberDomains`), so
   teammates' Gmail accounts can be granted roles.
 - Service account key creation and upload are disabled by organization policy: nothing
-  here uses key files. CI deploys will authenticate with Workload Identity Federation
-  (not configured yet).
+  here uses key files. CI deploys authenticate with Workload Identity Federation.
 - The organization disables automatic grants to default service accounts, so every
   workload (builds, Cloud Run) runs as a dedicated account with explicit roles.
 - A project inside an organization can move between folders, but not back to having no

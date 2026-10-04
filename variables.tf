@@ -218,3 +218,17 @@ variable "telegram_bot_username" {
     error_message = "telegram_bot_username goes without the leading \"@\"."
   }
 }
+
+# ---- CI deploys --------------------------------------------------------------------------
+
+variable "github_repository" {
+  description = "GitHub repository (owner/name) whose workflows may deploy through Workload Identity Federation."
+  type        = string
+  default     = "Lir-team/factored-hackathon-2026-lir-agent"
+}
+
+variable "deploy_branch" {
+  description = "Only workflows running on this branch of github_repository may deploy."
+  type        = string
+  default     = "main"
+}
