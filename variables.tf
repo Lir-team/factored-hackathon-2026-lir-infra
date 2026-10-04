@@ -62,6 +62,9 @@ variable "enabled_apis" {
     # Workload Identity Federation for CI deploys.
     "sts.googleapis.com",
     "iamcredentials.googleapis.com",
+    # Analytics: audit trail and eval runs.
+    "bigquery.googleapis.com",
+    "logging.googleapis.com",
   ]
 }
 
@@ -187,4 +190,24 @@ variable "cases_retention_days" {
     condition     = var.cases_retention_days >= 0
     error_message = "cases_retention_days must be 0 (keep forever) or a positive number of days."
   }
+}
+
+# ---- analytics ---------------------------------------------------------------------------
+
+variable "analytics_dataset_id" {
+  description = "BigQuery dataset with the audit trail and the evaluation trials."
+  type        = string
+  default     = "lir_analytics"
+}
+
+variable "analytics_location" {
+  description = "Location of the analytics dataset."
+  type        = string
+  default     = "us-east1"
+}
+
+variable "analytics_views_enabled" {
+  description = "Create the analytics views; enable after the sink has exported its first entry."
+  type        = bool
+  default     = false
 }
