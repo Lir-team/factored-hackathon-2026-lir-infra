@@ -1,7 +1,7 @@
 # Case flow infrastructure
 
 Locator: `odd/tasks/case-flow-infra.md` · Engram mirror: `odd/case-flow-infra/tasks`
-Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T1)
+Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T2)
 
 ## Objective
 
@@ -31,7 +31,7 @@ operator service.
 
 ## Tasks
 
-- [ ] **T1 Base** (`feat/case-flow-base`): enable APIs (pubsub, firestore, apigateway,
+- [x] **T1 Base** (`feat/case-flow-base`): enable APIs (pubsub, firestore, apigateway,
   servicemanagement, servicecontrol, sts, iamcredentials); Firestore native DB +
   TTL policy on start tokens / claims `expires_at`; cases inbox bucket; secrets
   `telegram-bot-token`, `telegram-webhook-secret`; remove unused AWS secrets;
@@ -66,4 +66,16 @@ operator service.
 
 ## Progress
 
-- (none yet)
+- **T1 done** (`feat/case-flow-base`, work commit `240ced1`, route: delegated writer).
+  Added `firestore.tf` (`(default)` native DB in `var.region`, delete protection on,
+  `deletion_policy = ABANDON`; TTL + index exemption on `expires_at` of `lir_claims` and
+  `lir_start_tokens`), `cases.tf` (`<project>-cases`, uniform access, PAP enforced, no
+  versioning, optional `cases_retention_days` lifecycle), Telegram secret containers, the
+  seven APIs, outputs `cases_bucket` / `firestore_database`, README rewrite (inventory,
+  apply steps, secrets table). Checks observed: `terraform fmt -check -recursive` ok,
+  `terraform init -backend=false` ok, `terraform validate` ok, `tflint` ok (no findings).
+  - Apply impact: removing `aws-access-key-id` / `aws-secret-access-key` destroys both
+    containers and their values.
+  - Assumption: no Firestore `(default)` database exists yet; README gives the import
+    command if it does.
+  - `.terraform.lock.hcl` gained the linux `h1:` hashes written by `terraform init`.
