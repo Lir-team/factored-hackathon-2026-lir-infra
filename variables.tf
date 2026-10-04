@@ -63,6 +63,9 @@ variable "enabled_apis" {
     # Workload Identity Federation for CI deploys.
     "sts.googleapis.com",
     "iamcredentials.googleapis.com",
+    # Analytics: audit log sink into BigQuery.
+    "bigquery.googleapis.com",
+    "logging.googleapis.com",
   ]
 }
 
@@ -217,4 +220,24 @@ variable "telegram_bot_username" {
     condition     = !startswith(var.telegram_bot_username, "@")
     error_message = "telegram_bot_username goes without the leading \"@\"."
   }
+}
+
+# ---- analytics ---------------------------------------------------------------------------
+
+variable "analytics_dataset_id" {
+  description = "BigQuery dataset with the audit trail and the evaluation trials."
+  type        = string
+  default     = "lir_analytics"
+}
+
+variable "analytics_location" {
+  description = "Location of the analytics dataset."
+  type        = string
+  default     = "us-east1"
+}
+
+variable "analytics_views_enabled" {
+  description = "Create the analytics views; enable after the sink has exported its first entry."
+  type        = bool
+  default     = false
 }

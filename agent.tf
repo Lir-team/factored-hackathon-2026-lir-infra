@@ -179,12 +179,15 @@ resource "google_cloud_run_v2_service" "agent" {
   lifecycle {
     # CI deploys new images with `gcloud run deploy`, which also stamps the client fields
     # and names the revision; Terraform owns the rest of the configuration. agent_image is
-    # only used when the service is first created.
+    # only used when the service is first created. Service-level scaling is filled by the
+    # API with zero defaults (instances are bounded in template.scaling); ignoring it keeps
+    # plans free of no-op diffs.
     ignore_changes = [
       template[0].containers[0].image,
       template[0].revision,
       client,
       client_version,
+      scaling,
     ]
   }
 
