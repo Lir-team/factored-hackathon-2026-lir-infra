@@ -28,6 +28,11 @@ output "build_source_bucket" {
   value       = google_storage_bucket.build_source.name
 }
 
+output "analytics_dataset" {
+  description = "BigQuery dataset for Looker Studio (audit views and eval_trials)."
+  value       = "${var.project_id}.${google_bigquery_dataset.analytics.dataset_id}"
+}
+
 output "agent_url" {
   description = "Agent API URL (behind IAP). Empty until agent_image is set."
   value       = local.deploy ? google_cloud_run_v2_service.agent[0].uri : ""
