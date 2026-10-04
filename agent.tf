@@ -46,6 +46,9 @@ locals {
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
     # Operator API behind IAP only: return how each turn was decided with the reply.
     var.expose_trace ? { EXPOSE_TRACE = "true" } : {},
+    # Examples in the API docs: a customer that exists in the data the service reads.
+    var.api_example_customer_id == "" ? {} : { API_EXAMPLE_CUSTOMER_ID = var.api_example_customer_id },
+    var.api_example_message == "" ? {} : { API_EXAMPLE_MESSAGE = var.api_example_message },
   )
 
   iap_members = toset(concat(keys(var.team_members), var.iap_members))
