@@ -211,6 +211,12 @@ variable "cors_origins" {
   default     = "http://localhost:5500"
 }
 
+variable "telegram_enabled" {
+  description = "Mount the Telegram secrets on the case flow service. Turn on after adding a version to both."
+  type        = bool
+  default     = false
+}
+
 variable "telegram_bot_username" {
   description = "Telegram bot username without \"@\", for the start link in the 202 answer. Empty: no link."
   type        = string

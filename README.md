@@ -97,8 +97,8 @@ printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --pro
 | `openrouter-api-key` | `OPENROUTER_API_KEY` | `lir-agent`, `lir-agent-cases` | `decision_llm_model` starts with `openrouter/` | OpenRouter → Keys |
 | `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare dashboard → account id |
 | `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
-| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent-cases` | always | BotFather → `/newbot` or `/token` |
-| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent-cases` | always | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
+| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent-cases` | `telegram_enabled = true` | BotFather → `/newbot` or `/token` |
+| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent-cases` | `telegram_enabled = true` | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
 
 `terraform output secrets` lists every container.
 
@@ -128,8 +128,9 @@ After the apply that creates the gateway:
    terraform output -raw cases_gateway_url
    ```
 
-2. Point the Telegram bot at the gateway (once, and again if the gateway URL or the secret
-   changes):
+2. Turn on Telegram: add a version to `telegram-bot-token` and `telegram-webhook-secret`, set
+   `telegram_enabled = true` and apply. Then point the bot at the gateway (once, and again
+   if the gateway URL or the secret changes):
 
    ```bash
    TOKEN=$(gcloud secrets versions access latest --secret telegram-bot-token --project lir-agent)
