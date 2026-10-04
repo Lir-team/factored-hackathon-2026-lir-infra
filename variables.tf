@@ -277,15 +277,15 @@ variable "pipeline_aws_region" {
 }
 
 variable "pipeline_cpu" {
-  description = "vCPUs of the pipeline task."
+  description = "vCPUs of the pipeline task (32Gi of memory needs at least 8)."
   type        = string
-  default     = "4"
+  default     = "8"
 }
 
 variable "pipeline_memory" {
-  description = "Memory of the pipeline task (the in-memory filesystem holds raw/ and outputs)."
+  description = "Memory of the pipeline task. The in-memory filesystem also holds raw/ and the outputs; 8Gi was killed (OOM) staging transactions."
   type        = string
-  default     = "8Gi"
+  default     = "32Gi"
 }
 
 variable "pipeline_timeout" {
