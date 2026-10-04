@@ -21,6 +21,9 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
+  # Bill API calls to the project: some APIs (API Keys) reject user ADC without a quota project.
+  billing_project       = var.project_id
+  user_project_override = true
 }
 
 provider "google-beta" {
