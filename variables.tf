@@ -145,6 +145,18 @@ variable "expose_trace" {
   default     = false
 }
 
+variable "api_example_customer_id" {
+  description = "Customer id shown as the example in the API docs; must exist in the data. Empty: the app default."
+  type        = string
+  default     = ""
+}
+
+variable "api_example_message" {
+  description = "Customer message shown as the example in the API docs. Empty: the app default."
+  type        = string
+  default     = ""
+}
+
 variable "reference_date" {
   description = "Date the agent treats as today (YYYY-MM-DD) to replay a static data snapshot. Empty: current date."
   type        = string
