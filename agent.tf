@@ -176,6 +176,18 @@ resource "google_cloud_run_v2_service" "agent" {
     }
   }
 
+  lifecycle {
+    # CI deploys new images with `gcloud run deploy`, which also stamps the client fields
+    # and names the revision; Terraform owns the rest of the configuration. agent_image is
+    # only used when the service is first created.
+    ignore_changes = [
+      template[0].containers[0].image,
+      template[0].revision,
+      client,
+      client_version,
+    ]
+  }
+
   depends_on = [
     google_secret_manager_secret_iam_member.agent,
     google_storage_bucket_iam_member.agent_reads_data,
