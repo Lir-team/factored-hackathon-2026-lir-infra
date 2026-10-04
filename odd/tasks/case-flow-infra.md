@@ -1,7 +1,7 @@
 # Case flow infrastructure
 
 Locator: `odd/tasks/case-flow-infra.md` · Engram mirror: `odd/case-flow-infra/tasks`
-Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T3)
+Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T4; T1-T3 written, not applied)
 
 ## Objective
 
@@ -43,7 +43,7 @@ operator service.
   topic after 5 attempts with the Pub/Sub service agent grants); API Gateway
   (OpenAPI spec: `/v1/cases` with API key + CORS, `/channels/telegram` no auth,
   backend auth to the service) and an API key restricted to the gateway service.
-- [ ] **T3 Deploy flow** (`feat/ci-deploy`, on T2): Workload Identity pool + GitHub
+- [x] **T3 Deploy flow** (`feat/ci-deploy`, on T2): Workload Identity pool + GitHub
   provider restricted to `Lir-team/factored-hackathon-2026-lir-agent`; deploy SA
   with Cloud Build submit, Artifact Registry write, Run developer on both
   services, `actAs` on runtime SAs; outputs for the workflow.
@@ -102,3 +102,18 @@ operator service.
     (in-place change only, no replacement of `lir-agent`).
   - Assumption: `FIRESTORE_DATABASE` / `FIRESTORE_COLLECTION_PREFIX` are set explicitly
     from Terraform so the TTL collections and the app always agree.
+- **T3 done** (`feat/ci-deploy`, work commit `8799fbb`, route: delegated writer).
+  `ci.tf`: pool `github`, provider `lir-team` (condition: repository
+  `Lir-team/factored-hackathon-2026-lir-agent` and ref `refs/heads/main`, both variables),
+  `lir-deploy` with `workloadIdentityUser` for the repository principalSet; project roles
+  `cloudbuild.builds.editor`, `serviceusage.serviceUsageConsumer`, `logging.viewer`;
+  `objectCreator` + `legacyBucketReader` on the build source bucket; `serviceAccountUser`
+  on `lir-build`, `lir-agent-run`, `lir-agent-cases-run`; `artifactregistry.reader` on
+  the repository; `run.developer` on both services. Outputs `wif_provider`,
+  `deploy_service_account`; README deploy flow + GitHub repository variables.
+  Checks observed: `terraform fmt -check -recursive` ok, `terraform init -backend=false`
+  ok, `terraform validate` ok, `tflint` ok (no findings).
+  - Assumption: `serviceUsageConsumer` and `logging.viewer` are needed because
+    `gcloud builds submit` uses the project's APIs and streams logs of a build that logs to
+    Cloud Logging only; drop `logging.viewer` if the workflow passes `--suppress-logs`.
+  - Note: a deleted Workload Identity pool id stays reserved for 30 days.
