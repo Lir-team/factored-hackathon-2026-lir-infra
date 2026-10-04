@@ -222,6 +222,20 @@ variable "telegram_bot_username" {
   }
 }
 
+# ---- CI deploys --------------------------------------------------------------------------
+
+variable "github_repository" {
+  description = "GitHub repository (owner/name) whose workflows may deploy through Workload Identity Federation."
+  type        = string
+  default     = "Lir-team/factored-hackathon-2026-lir-agent"
+}
+
+variable "deploy_branch" {
+  description = "Only workflows running on this branch of github_repository may deploy."
+  type        = string
+  default     = "main"
+}
+
 # ---- analytics ---------------------------------------------------------------------------
 
 variable "analytics_dataset_id" {

@@ -76,3 +76,13 @@ output "cases_topics" {
     dead_letter = google_pubsub_topic.cases_dead_letter.name
   }
 }
+
+output "wif_provider" {
+  description = "Workload Identity provider for google-github-actions/auth (GitHub variable WIF_PROVIDER)."
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "deploy_service_account" {
+  description = "Service account CI impersonates to build and deploy (GitHub variable DEPLOY_SA)."
+  value       = google_service_account.deploy.email
+}
