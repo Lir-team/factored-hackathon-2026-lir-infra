@@ -44,6 +44,8 @@ locals {
     },
     var.decision_llm_model == "" ? {} : { DECISION_LLM_MODEL = var.decision_llm_model },
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
+    # Operator API behind IAP only: return how each turn was decided with the reply.
+    var.expose_trace ? { EXPOSE_TRACE = "true" } : {},
   )
 
   iap_members = toset(concat(keys(var.team_members), var.iap_members))
