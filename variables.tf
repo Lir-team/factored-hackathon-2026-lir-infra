@@ -53,6 +53,16 @@ variable "enabled_apis" {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "storage.googleapis.com",
+    # Case flow: queue, case store and the public gateway.
+    "pubsub.googleapis.com",
+    "firestore.googleapis.com",
+    "apigateway.googleapis.com",
+    "servicemanagement.googleapis.com",
+    "servicecontrol.googleapis.com",
+    # Workload Identity Federation for CI deploys.
+    "sts.googleapis.com",
+    "iamcredentials.googleapis.com",
+    # Analytics: audit log sink into BigQuery.
     "bigquery.googleapis.com",
     "logging.googleapis.com",
   ]
@@ -161,6 +171,25 @@ variable "iap_members" {
   description = "Google accounts allowed through IAP to the agent API, in addition to team_members."
   type        = list(string)
   default     = []
+}
+
+# ---- case flow ---------------------------------------------------------------------------
+
+variable "firestore_collection_prefix" {
+  description = "Start of every case store collection name (the agent's FIRESTORE_COLLECTION_PREFIX)."
+  type        = string
+  default     = "lir_"
+}
+
+variable "cases_retention_days" {
+  description = "Days an archived case stays in the cases inbox bucket. 0 keeps cases forever."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.cases_retention_days >= 0
+    error_message = "cases_retention_days must be 0 (keep forever) or a positive number of days."
+  }
 }
 
 # ---- analytics ---------------------------------------------------------------------------

@@ -5,15 +5,21 @@ The agent, the evals and the data pipeline live in
 [factored-hackathon-2026-lir-agent](https://github.com/Lir-team/factored-hackathon-2026-lir-agent);
 infrastructure is kept in its own repository so its changes are reviewed and applied on their own.
 
-Currently managed:
+## What is managed
 
-- **Resource hierarchy:** folder `lir` in the team organization, holding the `lir-agent`
-  project (imported, with `deletion_policy = "PREVENT"`).
-- **Team access:** additive IAM bindings per teammate (`team_members`).
-- **Base APIs:** Resource Manager, IAM, Organization Policy, Service Usage.
+| Area | Resources | File |
+|---|---|---|
+| Resource hierarchy | Folder `lir` in the team organization holding the `lir-agent` project (imported, `deletion_policy = "PREVENT"`) | `organization.tf` |
+| Team access | Additive IAM bindings per teammate (`team_members`) | `main.tf` |
+| APIs | Every API in `enabled_apis` (never disabled on destroy) | `main.tf`, `variables.tf` |
+| Images and builds | Artifact Registry repository `lir`, build service account `lir-build`, build source bucket `<project>-build-source` (objects deleted after 7 days) | `agent.tf`, `build.tf` |
+| Operator API | Cloud Run service `lir-agent` behind IAP, runtime account `lir-agent-run`, data lake bucket `<project>-data` mounted read-only at `/mnt/data` | `agent.tf` |
+| Secrets | Secret Manager containers only: values are added by hand (see [Secrets](#secrets)) | `agent.tf` |
+| Case store | Firestore `(default)` database (native mode, delete protection on) with TTL on `expires_at` of `lir_claims` and `lir_start_tokens` | `firestore.tf` |
+| Cases inbox | Bucket `<project>-cases`: the archive of every accepted case (`cases/<case_id>.json`) | `cases.tf` |
 
-The Cloud Run service, Pub/Sub, Cloud Storage, Firestore, Secret Manager and BigQuery
-resources from the architecture diagram will be added here as they are deployed.
+The Cloud Run service is only created once `agent_image` is set, so the registry and the
+secrets can be prepared first.
 
 ## Prerequisites
 
@@ -42,26 +48,63 @@ gcloud organizations add-iam-policy-binding <organization-id> \
   --member="user:<admin-account>" --role="roles/resourcemanager.folderAdmin" --condition=None
 ```
 
-## Usage
+## Apply
 
 ```bash
 cp backend.hcl.example backend.hcl
-cp terraform.tfvars.example terraform.tfvars   # fill in the real team emails
+cp terraform.tfvars.example terraform.tfvars   # fill in the real values
 terraform init -backend-config=backend.hcl
-terraform fmt -check && terraform validate
-terraform plan -out=team.tfplan
-terraform apply team.tfplan
+terraform fmt -check -recursive && terraform validate
+terraform plan -out=lir.tfplan                  # read it before applying
+terraform apply lir.tfplan
 ```
+
+Then add the value of every secret the services read (next section). A Cloud Run revision
+that mounts a secret without a version fails to start.
 
 `terraform.tfvars` and `backend.hcl` are git-ignored: the repository is public and the
 tfvars file holds team emails, the organization id and the billing account.
+
+Notes for the next apply:
+
+- The AWS secrets (`aws-access-key-id`, `aws-secret-access-key`) were never read by the
+  agent and are no longer declared: the plan **destroys both containers and their values**.
+- Newly enabled APIs can take a minute to propagate. If a resource fails right after its
+  API was enabled, run `terraform apply` again.
+- If the project already has a Firestore `(default)` database, import it instead of
+  creating it: `terraform import google_firestore_database.default "projects/lir-agent/databases/(default)"`.
+
+## Secrets
+
+Terraform creates the containers; nobody's key ever reaches the Terraform state. Set or
+rotate a value with:
+
+```bash
+printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --project lir-agent
+```
+
+`printf %s` avoids the trailing newline that `echo` would store in the secret.
+
+| Secret id | Env var | Read by | Needed when | How to get the value |
+|---|---|---|---|---|
+| `openai-api-key` | `LLM_API_KEY`, `OPENAI_API_KEY` | `lir-agent` | always | OpenAI dashboard → API keys |
+| `openrouter-api-key` | `OPENROUTER_API_KEY` | `lir-agent` | `decision_llm_model` starts with `openrouter/` | OpenRouter → Keys |
+| `cloudflare-account-id` | `CLOUDFLARE_ACCOUNT_ID` | `lir-agent` | `jev_enabled = true` | Cloudflare dashboard → account id |
+| `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
+| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | case flow service (not deployed yet) | case flow | BotFather → `/newbot` or `/token` |
+| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | case flow service (not deployed yet) | case flow | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
+
+`terraform output secrets` lists every container.
 
 ## Organization notes
 
 - The organization allows members from any domain (`iam.allowedPolicyMemberDomains`), so
   teammates' Gmail accounts can be granted roles.
-- Service account key creation and upload are disabled by organization policy: CI and
-  deploys authenticate with Workload Identity Federation, never with key files.
+- Service account key creation and upload are disabled by organization policy: nothing
+  here uses key files. CI deploys will authenticate with Workload Identity Federation
+  (not configured yet).
+- The organization disables automatic grants to default service accounts, so every
+  workload (builds, Cloud Run) runs as a dedicated account with explicit roles.
 - A project inside an organization can move between folders, but not back to having no
   organization without Google support.
 

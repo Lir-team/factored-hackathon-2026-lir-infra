@@ -42,3 +42,13 @@ output "enabled_apis" {
   description = "APIs enabled by this configuration."
   value       = sort(tolist(var.enabled_apis))
 }
+
+output "cases_bucket" {
+  description = "Cases inbox bucket (the agent's CASES_BUCKET)."
+  value       = google_storage_bucket.cases.name
+}
+
+output "firestore_database" {
+  description = "Firestore database of the case store (the agent's FIRESTORE_DATABASE)."
+  value       = google_firestore_database.default.name
+}

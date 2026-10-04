@@ -9,9 +9,10 @@ locals {
     openai_api_key        = "openai-api-key"
     cloudflare_account_id = "cloudflare-account-id"
     cloudflare_api_token  = "cloudflare-api-token"
-    aws_access_key_id     = "aws-access-key-id"
-    aws_secret_access_key = "aws-secret-access-key"
     openrouter_api_key    = "openrouter-api-key"
+    # Telegram channel of the case flow: the BotFather token and the setWebhook secret_token.
+    telegram_bot_token      = "telegram-bot-token"
+    telegram_webhook_secret = "telegram-webhook-secret"
   }
 
   agent_secret_env = merge(
