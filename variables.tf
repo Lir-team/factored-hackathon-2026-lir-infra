@@ -163,6 +163,12 @@ variable "slack_enabled" {
   default     = false
 }
 
+variable "slack_assignees" {
+  description = "Comma-separated Slack member ids that take handoffs in rotation. Empty: @here."
+  type        = string
+  default     = ""
+}
+
 variable "public_base_url" {
   description = "Public URL of the agent service, for the case file link in the Slack notice."
   type        = string
