@@ -64,12 +64,14 @@ locals {
     var.telegram_bot_username == "" ? {} : { TELEGRAM_BOT_USERNAME = var.telegram_bot_username },
   )
 
+  # The Telegram secrets are mounted only once they hold a version (telegram_enabled);
+  # without them the agent starts and simply leaves /channels/telegram unregistered.
   cases_secret_env = merge(
     local.agent_secret_env,
-    {
+    var.telegram_enabled ? {
       TELEGRAM_BOT_TOKEN      = "telegram_bot_token"
       TELEGRAM_WEBHOOK_SECRET = "telegram_webhook_secret"
-    },
+    } : {},
   )
 }
 
