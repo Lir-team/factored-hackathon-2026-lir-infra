@@ -1,7 +1,7 @@
 # Case flow infrastructure
 
 Locator: `odd/tasks/case-flow-infra.md` · Engram mirror: `odd/case-flow-infra/tasks`
-Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T2)
+Delivery: `auto-chain`, `stacked-to-main` · Status: in progress (T3)
 
 ## Objective
 
@@ -36,7 +36,7 @@ operator service.
   TTL policy on start tokens / claims `expires_at`; cases inbox bucket; secrets
   `telegram-bot-token`, `telegram-webhook-secret`; remove unused AWS secrets;
   README rewrite with resource inventory and secrets table.
-- [ ] **T2 Cases service** (`feat/case-flow-service`, on T1): `lir-agent-cases` Cloud Run
+- [x] **T2 Cases service** (`feat/case-flow-service`, on T1): `lir-agent-cases` Cloud Run
   with its SA and least-privilege roles (bucket object create, topic publish,
   Firestore user, secret access); case-flow env vars; topic `lir-cases` + push
   subscription (OIDC SA, audience, 120s ack, ordering, retry backoff, dead-letter
@@ -79,3 +79,26 @@ operator service.
   - Assumption: no Firestore `(default)` database exists yet; README gives the import
     command if it does.
   - `.terraform.lock.hcl` gained the linux `h1:` hashes written by `terraform init`.
+- **T2 done** (`feat/case-flow-service`, work commit `2ec4774`, route: delegated writer).
+  `cases.tf` (SA `lir-agent-cases-run`, service `lir-agent-cases`, invokers), `pubsub.tf`
+  (topics, push + dead-letter subscriptions, `lir-pubsub-push`, service agent grants),
+  `gateway.tf` + `openapi/cases.yaml.tftpl` (API, config, gateway, `lir-gateway`, managed
+  service enablement, API key `lir-cases-web`), outputs, README case-flow section.
+  Checks observed: `terraform fmt -check -recursive` ok, `terraform init -backend=false`
+  ok, `terraform validate` ok, `tflint` ok (no findings). 569 added lines: above the
+  ~400 heuristic because service, queue and gateway only work together.
+  - Push audience: fixed string `lir-agent-cases-pubsub-push`, listed in the service's
+    `custom_audiences` (Cloud Run accepts it) and passed as `PUBSUB_PUSH_AUDIENCE`
+    (the agent's `verify_oauth2_token` checks `aud` equals it). Avoids the service
+    referencing its own URL.
+  - Inbox grant is `roles/storage.objectUser` on the cases bucket, not `objectCreator`:
+    a retry after a failed publish rewrites `cases/<case_id>.json`, and replacing an
+    object needs `storage.objects.delete`.
+  - Gateway CORS: `allowCors: true` plus an explicit `OPTIONS /v1/cases` without
+    security; the service answers it from `CORS_ORIGINS`. API key only on
+    `POST /v1/cases` (`?key=`); `/channels/telegram` open at the gateway, checked by the
+    agent's secret token. Backend deadline 60 s.
+  - Both services ignore `image`, `template.revision`, `client`, `client_version`
+    (in-place change only, no replacement of `lir-agent`).
+  - Assumption: `FIRESTORE_DATABASE` / `FIRESTORE_COLLECTION_PREFIX` are set explicitly
+    from Terraform so the TTL collections and the app always agree.
