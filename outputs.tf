@@ -33,11 +33,6 @@ output "analytics_dataset" {
   value       = "${var.project_id}.${google_bigquery_dataset.analytics.dataset_id}"
 }
 
-output "agent_url" {
-  description = "Agent API URL (behind IAP). Empty until agent_image is set."
-  value       = local.deploy ? google_cloud_run_v2_service.agent[0].uri : ""
-}
-
 output "enabled_apis" {
   description = "APIs enabled by this configuration."
   value       = sort(tolist(var.enabled_apis))
@@ -55,12 +50,7 @@ output "firestore_database" {
 
 output "cases_gateway_url" {
   description = "Public URL of the case flow (lir-web casesEndpoint base, Telegram webhook base)."
-  value       = local.deploy ? "https://${google_api_gateway_gateway.cases[0].default_hostname}" : ""
-}
-
-output "cases_service_url" {
-  description = "Cloud Run URL of the case flow service (invokers only: gateway and Pub/Sub)."
-  value       = local.deploy ? google_cloud_run_v2_service.cases[0].uri : ""
+  value       = local.cases_deployed ? "https://${google_api_gateway_gateway.cases[0].default_hostname}" : ""
 }
 
 output "cases_api_key" {
@@ -87,9 +77,51 @@ output "deploy_service_account" {
   value       = google_service_account.deploy.email
 }
 
-output "pipeline_job" {
-  description = "Cloud Run job of the data pipeline. Empty until pipeline_image is set."
-  value       = local.pipeline_deploy ? google_cloud_run_v2_job.pipeline[0].name : ""
+# ---- Cloud Run deploy settings (services and job are deployed outside Terraform) ----------
+
+output "agent_service_account" {
+  description = "Runtime account of the agent service (`gcloud run deploy --service-account`)."
+  value       = google_service_account.agent.email
+}
+
+output "cases_service_account" {
+  description = "Runtime account of the case flow service (`gcloud run deploy --service-account`)."
+  value       = google_service_account.cases.email
+}
+
+output "pipeline_service_account" {
+  description = "Runtime account of the data pipeline job (`gcloud run jobs create --service-account`)."
+  value       = google_service_account.pipeline.email
+}
+
+output "agent_env" {
+  description = "Plain env vars of the agent service (`--set-env-vars`)."
+  value       = local.agent_env
+}
+
+output "agent_secret_env" {
+  description = "Env var -> Secret Manager secret id of the agent service (`--set-secrets NAME=SECRET:latest`)."
+  value       = { for name, key in local.agent_secret_env : name => google_secret_manager_secret.this[key].secret_id }
+}
+
+output "cases_env" {
+  description = "Plain env vars of the case flow service (`--set-env-vars`)."
+  value       = local.cases_env
+}
+
+output "cases_secret_env" {
+  description = "Env var -> Secret Manager secret id of the case flow service (`--set-secrets NAME=SECRET:latest`)."
+  value       = { for name, key in local.cases_secret_env : name => google_secret_manager_secret.this[key].secret_id }
+}
+
+output "cases_push_audience" {
+  description = "Custom audience the case flow service must accept for Pub/Sub pushes (`--add-custom-audiences`)."
+  value       = local.cases_push_audience
+}
+
+output "pipeline_secret_env" {
+  description = "Env var -> Secret Manager secret id of the data pipeline job (`--set-secrets NAME=SECRET:latest`)."
+  value       = { for name, key in local.pipeline_secret_env : name => google_secret_manager_secret.this[key].secret_id }
 }
 
 output "customer_jwt_issuer" {

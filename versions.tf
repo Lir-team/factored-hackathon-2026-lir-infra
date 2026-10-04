@@ -1,12 +1,13 @@
 terraform {
-  required_version = ">= 1.6"
+  # removed blocks (Cloud Run moved out of Terraform) need 1.7.
+  required_version = ">= 1.7"
 
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = "~> 6.0"
     }
-    # IAP directly on Cloud Run (iap_enabled) is only in the beta provider.
+    # API Gateway and service identities (IAP, Pub/Sub) are only in the beta provider.
     google-beta = {
       source  = "hashicorp/google-beta"
       version = "~> 6.0"

@@ -22,7 +22,7 @@ resource "google_api_gateway_api" "cases" {
 }
 
 resource "google_api_gateway_api_config" "cases" {
-  count    = local.deploy ? 1 : 0
+  count    = local.cases_deployed ? 1 : 0
   provider = google-beta
 
   api = google_api_gateway_api.cases.api_id
@@ -37,7 +37,7 @@ resource "google_api_gateway_api_config" "cases" {
       contents = base64encode(templatefile("${path.module}/openapi/cases.yaml.tftpl", {
         title           = "Lir case flow"
         managed_service = google_api_gateway_api.cases.managed_service
-        backend_address = google_cloud_run_v2_service.cases[0].uri
+        backend_address = var.cases_service_url
         # API Gateway verifies the customer's JWT and forwards its claims to the service in
         # X-Apigateway-Api-Userinfo; the agent reads the customer id from `sub`.
         customer_sign_in = var.customer_sign_in
@@ -60,7 +60,7 @@ resource "google_api_gateway_api_config" "cases" {
 }
 
 resource "google_api_gateway_gateway" "cases" {
-  count    = local.deploy ? 1 : 0
+  count    = local.cases_deployed ? 1 : 0
   provider = google-beta
 
   gateway_id   = "lir-cases"
@@ -71,7 +71,7 @@ resource "google_api_gateway_gateway" "cases" {
 
 # API keys only work for a gateway whose managed service is enabled in the project.
 resource "google_project_service" "cases_api" {
-  count = local.deploy ? 1 : 0
+  count = local.cases_deployed ? 1 : 0
 
   service            = google_api_gateway_api.cases.managed_service
   disable_on_destroy = false
