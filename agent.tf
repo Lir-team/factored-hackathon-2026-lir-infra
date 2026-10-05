@@ -34,6 +34,11 @@ locals {
       CLOUDFLARE_API_TOKEN  = "cloudflare_api_token"
     } : {},
     var.slack_enabled ? { SLACK_WEBHOOK_URL = "slack_webhook_url" } : {},
+    # The operator service tells the customer in Telegram how a specialist decided.
+    var.telegram_enabled ? {
+      TELEGRAM_BOT_TOKEN      = "telegram_bot_token"
+      TELEGRAM_WEBHOOK_SECRET = "telegram_webhook_secret"
+    } : {},
     startswith(var.decision_llm_model, "openrouter/") ? {
       OPENROUTER_API_KEY = "openrouter_api_key"
     } : {},
@@ -48,6 +53,16 @@ locals {
       STORE        = var.agent_store
       JEV_ENABLED  = var.jev_enabled ? "1" : "0"
       DECISIONS    = var.decisions
+
+      # Both services share cases, case files and approval requests: the case flow creates
+      # them and the specialist decides in the operator back office.
+      GOOGLE_CLOUD_PROJECT        = var.project_id
+      CASE_STORE                  = "firestore"
+      CASE_REPOSITORY             = "firestore"
+      APPROVAL_REPOSITORY         = "firestore"
+      FIRESTORE_DATABASE          = google_firestore_database.default.name
+      FIRESTORE_COLLECTION_PREFIX = var.firestore_collection_prefix
+      BACKOFFICE_ENABLED          = "true"
     },
     var.decision_llm_model == "" ? {} : { DECISION_LLM_MODEL = var.decision_llm_model },
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
