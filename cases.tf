@@ -66,6 +66,7 @@ locals {
       PUBSUB_PUSH_SERVICE_ACCOUNT = google_service_account.pubsub_push.email
     },
     var.telegram_bot_username == "" ? {} : { TELEGRAM_BOT_USERNAME = var.telegram_bot_username },
+    var.speech_to_text_enabled ? { SPEECH_TO_TEXT = "google" } : {},
     # Link to the approval card in lir-web; Telegram only opens https links from a button.
     var.approval_link_template == "" ? {} : { APPROVAL_LINK_TEMPLATE = var.approval_link_template },
   )
@@ -107,6 +108,15 @@ resource "google_pubsub_topic_iam_member" "cases_publishes" {
 resource "google_project_iam_member" "cases_uses_firestore" {
   project = var.project_id
   role    = "roles/datastore.user"
+  member  = google_service_account.cases.member
+}
+
+# Transcribes Telegram voice notes (speech.recognize); granted only while voice notes are on.
+resource "google_project_iam_member" "cases_uses_speech" {
+  count = var.speech_to_text_enabled ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/speech.client"
   member  = google_service_account.cases.member
 }
 

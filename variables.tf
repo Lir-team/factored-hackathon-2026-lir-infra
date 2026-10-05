@@ -66,6 +66,8 @@ variable "enabled_apis" {
     # Analytics: audit log sink into BigQuery.
     "bigquery.googleapis.com",
     "logging.googleapis.com",
+    # Telegram voice notes: transcribed by the case flow service (speech_to_text_enabled).
+    "speech.googleapis.com",
   ]
 }
 
@@ -279,6 +281,12 @@ variable "cors_origins" {
 
 variable "telegram_enabled" {
   description = "Grant and list (cases_secret_env) the Telegram secrets for the case flow service. Turn on after adding a version to both."
+  type        = bool
+  default     = false
+}
+
+variable "speech_to_text_enabled" {
+  description = "Transcribe Telegram voice notes with Speech-to-Text in the case flow service (SPEECH_TO_TEXT=google). Off: the bot asks the customer to type."
   type        = bool
   default     = false
 }
