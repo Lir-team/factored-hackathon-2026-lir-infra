@@ -63,6 +63,32 @@ paths:
       responses:
         "200":
           description: CORS headers for the allowed origins.
+  # The signed-in customer's latest transactions for lir-web; the customer comes from the JWT.
+  /v1/me/transactions:
+    get:
+      operationId: listMyTransactions
+      summary: The signed-in customer's latest transactions (lir-web statement).
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          type: integer
+      security:
+        - api_key: []
+%{ if customer_sign_in ~}
+          customer_jwt: []
+%{ endif ~}
+      responses:
+        "200":
+          description: The customer and their transactions, newest first.
+        default:
+          description: Error answered by the agent.
+    options:
+      operationId: listMyTransactionsPreflight
+      summary: CORS preflight, answered by the service.
+      responses:
+        "200":
+          description: CORS headers for the allowed origins.
   # Approval card (human in the loop): the single-use link token travels in
   # X-Approval-Token; with customer_sign_in, the customer must also be signed in (step-up).
   /v1/approvals/{approval_id}:
