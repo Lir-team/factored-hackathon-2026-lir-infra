@@ -1,5 +1,7 @@
 # lir-infra
 
+<p align="center"><img src="docs/assets/lir-terraform.gif" alt="Lir" width="160"></p>
+
 Terraform for the `lir-agent` GCP project of team Lir (Factored AI & Data Hackathon 2026).
 The agent, the evals and the data pipeline live in
 [factored-hackathon-2026-lir-agent](https://github.com/Lir-team/factored-hackathon-2026-lir-agent);
