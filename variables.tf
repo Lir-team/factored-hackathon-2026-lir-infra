@@ -313,7 +313,7 @@ variable "github_repository" {
 variable "web_github_repository" {
   description = "GitHub repository (owner/name) of lir-web, whose main branch deploys the frontend."
   type        = string
-  default     = "Lir-team/lir-web"
+  default     = "Lir-team/factored-hackathon-2026-lir-web"
 }
 
 variable "web_repository" {
