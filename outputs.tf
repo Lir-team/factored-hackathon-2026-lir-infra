@@ -77,6 +77,21 @@ output "deploy_service_account" {
   value       = google_service_account.deploy.email
 }
 
+output "web_wif_provider" {
+  description = "Workload Identity provider for the lir-web workflow (its GitHub variable WIF_PROVIDER)."
+  value       = google_iam_workload_identity_pool_provider.web.name
+}
+
+output "web_deploy_service_account" {
+  description = "Service account the lir-web workflow impersonates."
+  value       = google_service_account.web_deploy.email
+}
+
+output "web_image_registry" {
+  description = "Registry the lir-web workflow pushes its image to."
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.web.repository_id}"
+}
+
 # ---- Cloud Run deploy settings (services and job are deployed outside Terraform) ----------
 
 output "agent_service_account" {
