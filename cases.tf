@@ -31,11 +31,15 @@ resource "google_storage_bucket" "cases" {
 
 locals {
   # The cases service runs the same image as the operator API with the case flow switched
-  # on. Pub/Sub signs each push with an OIDC token for this audience. It is a fixed string,
+  # on. GitHub Actions deploys it with cases_env / cases_secret_env (outputs). Pub/Sub signs each push with an OIDC token for this audience. It is a fixed string,
   # not the service URL: the URL only exists after the service is created, so the service
   # could not receive it in its own environment. Cloud Run accepts it because it is listed
   # in `custom_audiences`, and the agent checks it again (PUBSUB_PUSH_AUDIENCE).
   cases_push_audience = "${var.cases_service_name}-pubsub-push"
+
+  # The service exists (deployed by GitHub Actions) once its URL is set: the gateway, the
+  # push subscription and the invoker bindings wait for it (two-phase apply).
+  cases_deployed = var.cases_service_url != ""
 
   cases_env = merge(
     local.agent_env,
@@ -125,109 +129,25 @@ resource "google_secret_manager_secret_iam_member" "cases" {
 
 # ---- service ----------------------------------------------------------------------------
 
-resource "google_cloud_run_v2_service" "cases" {
-  count = local.deploy ? 1 : 0
-
-  name     = var.cases_service_name
-  location = var.region
-  # Public network path, private IAM: only the gateway and the Pub/Sub push accounts hold
-  # run.invoker, so every other request is rejected by Cloud Run before the agent sees it.
-  ingress             = "INGRESS_TRAFFIC_ALL"
-  deletion_protection = false
-  custom_audiences    = [local.cases_push_audience]
-
-  template {
-    service_account       = google_service_account.cases.email
-    execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
-
-    scaling {
-      min_instance_count = 0
-      # ADK sessions live in memory: a second instance would not know the conversation.
-      max_instance_count = var.cases_max_instances
-    }
-
-    containers {
-      image = var.agent_image
-
-      ports {
-        container_port = 8080
-      }
-
-      resources {
-        limits = {
-          cpu    = "1"
-          memory = "1Gi"
-        }
-      }
-
-      dynamic "env" {
-        for_each = local.cases_env
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
-
-      dynamic "env" {
-        for_each = local.cases_secret_env
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.this[env.value].secret_id
-              version = "latest"
-            }
-          }
-        }
-      }
-
-      volume_mounts {
-        name       = "data"
-        mount_path = "/mnt/data"
-      }
-
-      startup_probe {
-        http_get {
-          path = "/health"
-        }
-      }
-    }
-
-    volumes {
-      name = "data"
-      gcs {
-        bucket    = google_storage_bucket.data.name
-        read_only = true
-      }
-    }
-  }
+# The service moved to GitHub Actions. Forget it without destroying the live service; this
+# block can be deleted once every state that held the resource has been applied.
+removed {
+  from = google_cloud_run_v2_service.cases
 
   lifecycle {
-    # CI deploys new images with `gcloud run deploy`, which also stamps the client fields
-    # and names the revision; Terraform owns the rest of the configuration.
-    ignore_changes = [
-      template[0].containers[0].image,
-      template[0].revision,
-      client,
-      client_version,
-      scaling,
-    ]
+    destroy = false
   }
-
-  depends_on = [
-    google_secret_manager_secret_iam_member.cases,
-    google_storage_bucket_iam_member.cases_reads_data,
-    google_storage_bucket_iam_member.cases_writes_inbox,
-  ]
 }
 
+# Public network path, private IAM: only the gateway and the Pub/Sub push accounts hold
+# run.invoker, so every other request is rejected by Cloud Run before the agent sees it.
 resource "google_cloud_run_v2_service_iam_member" "cases_invokers" {
-  for_each = local.deploy ? {
+  for_each = local.cases_deployed ? {
     gateway     = google_service_account.gateway.member
     pubsub_push = google_service_account.pubsub_push.member
   } : {}
 
-  name     = google_cloud_run_v2_service.cases[0].name
+  name     = var.cases_service_name
   location = var.region
   role     = "roles/run.invoker"
   member   = each.value

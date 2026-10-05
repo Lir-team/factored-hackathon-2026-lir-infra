@@ -14,8 +14,12 @@ team_members = {
   "teammate.two@example.com" = ["roles/editor"]
 }
 
-# Agent service: image built with app/lir-agent/cloudbuild.yaml. Empty skips the service.
-agent_image = ""
+# Cloud Run services are deployed by GitHub Actions, not Terraform (README). Leave these
+# unset on the first apply; set them once the workflow has deployed both services.
+# agent_service_deployed = true
+# cases_service_url      = "https://lir-agent-cases-<hash>-ue.a.run.app"
+
+# Agent configuration, exported as the agent_env / cases_env outputs for the workflow.
 # llm_model          = "openai/gpt-4o"
 # agent_store        = "auto"
 # jev_enabled        = false
@@ -32,7 +36,6 @@ agent_image = ""
 # approval_link_template = "https://<lir-web host>/aprobar.html?id={approval_id}&t={token}"
 # telegram_bot_username = "lir_bank_bot"            # without "@"; empty: no start link
 # cors_origins          = "http://localhost:5500"   # where lir-web runs
-# cases_max_instances   = 1
 
 # CI deploys through Workload Identity Federation.
 # github_repository = "Lir-team/factored-hackathon-2026-lir-agent"

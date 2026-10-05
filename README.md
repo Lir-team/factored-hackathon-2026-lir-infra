@@ -13,23 +13,22 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Team access | Additive IAM bindings per teammate (`team_members`) | `main.tf` |
 | APIs | Every API in `enabled_apis` (never disabled on destroy) | `main.tf`, `variables.tf` |
 | Images and builds | Artifact Registry repository `lir`, build service account `lir-build`, build source bucket `<project>-build-source` (objects deleted after 7 days) | `agent.tf`, `build.tf` |
-| Operator API | Cloud Run service `lir-agent` behind IAP, runtime account `lir-agent-run`, data lake bucket `<project>-data` mounted read-only at `/mnt/data` | `agent.tf` |
+| Operator API | Runtime account `lir-agent-run`, IAP access to the `lir-agent` service (deployed by GitHub Actions), data lake bucket `<project>-data` | `agent.tf` |
 | Secrets | Secret Manager containers only: values are added by hand (see [Secrets](#secrets)) | `agent.tf` |
 | Case store | Firestore `(default)` database (native mode, delete protection on) with TTL on `expires_at` of `lir_claims` and `lir_start_tokens` | `firestore.tf` |
-| Data pipeline | Cloud Run job `lir-pipeline` (S3 → staging/curated in the data lake bucket), runtime account `lir-pipeline-run`, only writer of the data bucket | `pipeline.tf` |
+| Data pipeline | Runtime account `lir-pipeline-run` of the `lir-pipeline` job (created by hand), only writer of the data bucket | `pipeline.tf` |
 | Cases inbox | Bucket `<project>-cases`: the archive of every accepted case (`cases/<case_id>.json`) | `cases.tf` |
-| Case flow service | Cloud Run service `lir-agent-cases` (same image, no IAP), runtime account `lir-agent-cases-run` | `cases.tf` |
+| Case flow service | Runtime account `lir-agent-cases-run`, `run.invoker` for the gateway and Pub/Sub on `lir-agent-cases` (deployed by GitHub Actions) | `cases.tf` |
 | Case queue | Topic `lir-cases`, push subscription `lir-cases-push` (signed as `lir-pubsub-push`), dead-letter topic and subscription `lir-cases-dead-letter` | `pubsub.tf` |
 | Public gateway | API Gateway `lir-cases` (spec in `openapi/cases.yaml.tftpl`), backend account `lir-gateway`, API key `lir-cases-web` | `gateway.tf` |
 | CI deploys | Workload Identity pool `github` with provider `lir-team` (agent repository, `main` only), deploy account `lir-deploy` | `ci.tf` |
 
-The Cloud Run services, the push subscription and the gateway are only created once
-`agent_image` is set, so the registry and the secrets can be prepared first. After that,
-Terraform ignores the image: new images are deployed with `gcloud run deploy`.
+Cloud Run itself (the two services and the pipeline job) is **not** managed here: see
+[Cloud Run is deployed outside Terraform](#cloud-run-is-deployed-outside-terraform).
 
 ## Prerequisites
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.6
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.7 (`removed` blocks)
 - `gcloud` signed in with an account that can manage IAM on the project
 - Application Default Credentials for Terraform:
 
@@ -65,9 +64,8 @@ terraform plan -out=lir.tfplan                  # read it before applying
 terraform apply lir.tfplan
 ```
 
-Add the value of every secret the services read (next section) **before** the apply that
-creates the services: a Cloud Run revision that mounts a secret without a version fails
-to start. The first apply can run with `agent_image = ""` to create the containers.
+Add the value of every secret the services read (next section) **before** GitHub Actions
+deploys them: a Cloud Run revision that mounts a secret without a version fails to start.
 
 `terraform.tfvars` and `backend.hcl` are git-ignored: the repository is public and the
 tfvars file holds team emails, the organization id and the billing account.
@@ -163,6 +161,63 @@ After the apply that creates the gateway:
 
    Set `telegram_bot_username` (without `@`) so the `202` answer carries the start link.
 
+## Cloud Run is deployed outside Terraform
+
+Since 2026-10-04 Terraform no longer owns `lir-agent`, `lir-agent-cases` (GitHub Actions
+creates and deploys them) or the `lir-pipeline` job (created by hand). `removed` blocks with
+`destroy = false` drop them, and the old service-scoped `run.developer` bindings of
+`lir-deploy`, from the state **without destroying them**. Terraform keeps everything around
+them: runtime accounts, secrets, buckets, registry, Pub/Sub, gateway and the IAM.
+
+Apply in two phases:
+
+1. **First apply** with `agent_service_deployed = false` and `cases_service_url = ""`:
+   accounts, registry, secrets, buckets, topics and CI identity. Add the secret values.
+2. **Deploy** both services with the GitHub Actions workflow (settings below) and create the
+   pipeline job by hand.
+3. **Second apply** with `agent_service_deployed = true` and `cases_service_url` set to the
+   cases service URL: service-scoped IAP and `run.invoker` bindings, the API Gateway and the
+   Pub/Sub push subscription. Leaving `cases_service_url` empty later would destroy them.
+
+### Service settings the workflow must carry
+
+Read the values with `terraform output` (`-json` for maps). Both services:
+
+| Setting | `lir-agent` | `lir-agent-cases` |
+|---|---|---|
+| Region | `region` (`us-east1`) | same |
+| Image | `<image_registry>/lir-agent:<tag>` | same image |
+| `--service-account` | `agent_service_account` | `cases_service_account` |
+| `--set-env-vars` | `agent_env` | `cases_env` (adds case flow, Pub/Sub, Firestore, CORS) |
+| `--set-secrets` (`NAME=SECRET:latest`) | `agent_secret_env` | `cases_secret_env` |
+| Auth | `--iap` (IAP on Cloud Run, `gcloud beta run deploy`), `--no-allow-unauthenticated` | `--no-allow-unauthenticated`, `--add-custom-audiences <cases_push_audience>` |
+| Ingress | `--ingress all` | `--ingress all` |
+| Scaling | `--min-instances 0 --max-instances 1` (sessions in memory) | same |
+| Resources | `--cpu 1 --memory 1Gi --port 8080`, `--execution-environment gen2` | same |
+| Data lake | `--add-volume name=data,type=cloud-storage,bucket=<data_bucket>,readonly=true --add-volume-mount volume=data,mount-path=/mnt/data` | same |
+| Startup probe | HTTP `GET /health` | same |
+
+`lir-deploy` has `roles/run.developer` on the project (it must create the services) but
+cannot set IAM: never pass `--allow-unauthenticated`. Invokers and IAP users come from
+the second apply.
+
+### Pipeline job (created by hand)
+
+```bash
+gcloud run jobs create lir-pipeline --region us-east1 \
+  --image <image_registry>/lir-pipeline:<tag> \
+  --service-account "$(terraform output -raw pipeline_service_account)" \
+  --tasks 1 --max-retries 1 --task-timeout 3600s --cpu 8 --memory 32Gi \
+  --execution-environment gen2 \
+  --set-env-vars LAKE_DIR=/mnt/lake,AWS_DEFAULT_REGION=us-east-2 \
+  --set-secrets AWS_ACCESS_KEY_ID=aws-access-key-id:latest,AWS_SECRET_ACCESS_KEY=aws-secret-access-key:latest \
+  --add-volume name=lake,type=cloud-storage,bucket="$(terraform output -raw data_bucket)" \
+  --add-volume-mount volume=lake,mount-path=/mnt/lake
+```
+
+8 vCPU / 32Gi: the in-memory filesystem holds raw/ and the outputs; 8Gi was killed (OOM)
+staging transactions. Image built with `data/cloudbuild.yaml` of the agent repository.
+
 ## Deploy flow
 
 Image deploys never need `terraform apply`. On every push to `main` of the agent
@@ -172,12 +227,12 @@ repository, GitHub Actions:
    with `WIF_PROVIDER` and `DEPLOY_SA`); tokens from other repositories or branches are rejected;
 2. builds the image with `gcloud builds submit` as `BUILD_SA`, staging the source in
    `BUILD_BUCKET` and pushing to `<GCP_REGION>-docker.pkg.dev/<GCP_PROJECT_ID>/<AR_REPO>`;
-3. rolls it out with `gcloud run deploy <service> --image ...` to `lir-agent` and
-   `lir-agent-cases`. Terraform ignores the image, so the next apply keeps it.
+3. deploys it with `gcloud run deploy <service> --image ...` to `lir-agent` and
+   `lir-agent-cases`, with the settings above (Terraform does not manage the services).
 
 `lir-deploy` can create builds, stream their logs, upload build sources, act as
-`lir-build` and both runtime accounts, read images and deploy revisions
-(`roles/run.developer` on the two services only). It cannot change IAM.
+`lir-build` and both runtime accounts, read images and create and deploy services
+(`roles/run.developer` on the project). It cannot change IAM.
 
 Set these **repository variables** in GitHub (Settings → Secrets and variables → Actions →
 Variables) on the agent repository; none of them is secret:

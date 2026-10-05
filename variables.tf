@@ -102,24 +102,22 @@ variable "artifact_repository_id" {
 }
 
 variable "agent_service_name" {
-  description = "Cloud Run service that serves the agent HTTP API."
+  description = <<-EOT
+    Cloud Run service that serves the agent HTTP API. GitHub Actions deploys it (not
+    Terraform); the name also prefixes its runtime account (<name>-run).
+  EOT
   type        = string
   default     = "lir-agent"
 }
 
-variable "agent_image" {
+variable "agent_service_deployed" {
   description = <<-EOT
-    Full image reference of the agent (REGION-docker.pkg.dev/PROJECT/REPO/lir-agent:TAG).
-    Empty skips the Cloud Run service, so secrets and the registry can be prepared first.
+    Set to true once GitHub Actions has deployed agent_service_name (second apply). Until
+    then the service-scoped IAP invoker and IAP user bindings are skipped, since IAM on a
+    Cloud Run service needs the service to exist.
   EOT
-  type        = string
-  default     = ""
-}
-
-variable "agent_max_instances" {
-  description = "Upper bound of agent instances. Sessions live in memory, so keep 1 until they move to Firestore."
-  type        = number
-  default     = 1
+  type        = bool
+  default     = false
 }
 
 variable "llm_model" {
@@ -230,15 +228,29 @@ variable "cases_retention_days" {
 }
 
 variable "cases_service_name" {
-  description = "Cloud Run service of the case flow (same image as agent_service_name, no IAP)."
+  description = <<-EOT
+    Cloud Run service of the case flow (same image as agent_service_name, no IAP). GitHub
+    Actions deploys it (not Terraform); the name also prefixes its runtime account and the
+    Pub/Sub push audience.
+  EOT
   type        = string
   default     = "lir-agent-cases"
 }
 
-variable "cases_max_instances" {
-  description = "Upper bound of case flow instances. ADK sessions live in memory, so keep 1."
-  type        = number
-  default     = 1
+variable "cases_service_url" {
+  description = <<-EOT
+    URL of cases_service_name (https://..., no trailing slash), set once GitHub Actions has
+    deployed it (second apply): `gcloud run services describe <name> --format='value(status.url)'`.
+    Empty skips the run.invoker bindings, the API Gateway config and gateway, and the Pub/Sub
+    push subscription, which all need the service to exist.
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.cases_service_url == "" || can(regex("^https://[^/]+$", var.cases_service_url))
+    error_message = "cases_service_url must be empty or an https URL without path or trailing slash."
+  }
 }
 
 variable "customer_sign_in" {
@@ -266,7 +278,7 @@ variable "cors_origins" {
 }
 
 variable "telegram_enabled" {
-  description = "Mount the Telegram secrets on the case flow service. Turn on after adding a version to both."
+  description = "Grant and list (cases_secret_env) the Telegram secrets for the case flow service. Turn on after adding a version to both."
   type        = bool
   default     = false
 }
@@ -319,37 +331,8 @@ variable "analytics_views_enabled" {
 # ---- data pipeline -----------------------------------------------------------------------
 
 variable "pipeline_job_name" {
-  description = "Cloud Run job that runs the data pipeline and publishes the data lake."
+  description = "Cloud Run job that runs the data pipeline (created by hand, not by Terraform); prefixes its runtime account (<name>-run)."
   type        = string
   default     = "lir-pipeline"
 }
 
-variable "pipeline_image" {
-  description = "Image of the data pipeline (built with data/cloudbuild.yaml). Empty skips the job."
-  type        = string
-  default     = ""
-}
-
-variable "pipeline_aws_region" {
-  description = "Region of the organizers' S3 bucket."
-  type        = string
-  default     = "us-east-2"
-}
-
-variable "pipeline_cpu" {
-  description = "vCPUs of the pipeline task (32Gi of memory needs at least 8)."
-  type        = string
-  default     = "8"
-}
-
-variable "pipeline_memory" {
-  description = "Memory of the pipeline task. The in-memory filesystem also holds raw/ and the outputs; 8Gi was killed (OOM) staging transactions."
-  type        = string
-  default     = "32Gi"
-}
-
-variable "pipeline_timeout" {
-  description = "Maximum duration of one pipeline run."
-  type        = string
-  default     = "3600s"
-}

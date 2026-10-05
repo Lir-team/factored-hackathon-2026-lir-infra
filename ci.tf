@@ -1,6 +1,7 @@
 # CI deploys: GitHub Actions on the agent repository signs in with Workload Identity
 # Federation (no key files: the organization forbids them), builds the image with Cloud
-# Build as lir-build and rolls it out to both Cloud Run services with `gcloud run deploy`.
+# Build as lir-build and deploys both Cloud Run services with `gcloud run deploy` (the
+# services are created and configured by the workflow, not by Terraform).
 
 locals {
   # Image deploys run on every push to the deploy branch of the agent repository only.
@@ -49,11 +50,15 @@ resource "google_service_account_iam_member" "github_impersonates_deploy" {
 
 # `gcloud builds submit`: create builds, consume the project's APIs and stream the build
 # logs (builds log to Cloud Logging only, see cloudbuild.yaml).
+# `gcloud run deploy`: the workflow now creates the services, and run.services.create can only
+# be granted on the project (a service-scoped binding needs the service to exist already).
+# run.developer still cannot set IAM policies, so invoker and IAP access stay Terraform-owned.
 resource "google_project_iam_member" "deploy" {
   for_each = toset([
     "roles/cloudbuild.builds.editor",
     "roles/serviceusage.serviceUsageConsumer",
     "roles/logging.viewer",
+    "roles/run.developer",
   ])
 
   project = var.project_id
@@ -94,15 +99,12 @@ resource "google_artifact_registry_repository_iam_member" "deploy_reads_images" 
   member     = google_service_account.deploy.member
 }
 
-# New revisions only: run.developer cannot change who may invoke the services.
-resource "google_cloud_run_v2_service_iam_member" "deploy_rolls_out" {
-  for_each = local.deploy ? {
-    agent = google_cloud_run_v2_service.agent[0].name
-    cases = google_cloud_run_v2_service.cases[0].name
-  } : {}
+# Replaced by the project-level run.developer above. Forget the old service-scoped bindings
+# without destroying them; they are redundant now and can be removed by hand.
+removed {
+  from = google_cloud_run_v2_service_iam_member.deploy_rolls_out
 
-  name     = each.value
-  location = var.region
-  role     = "roles/run.developer"
-  member   = google_service_account.deploy.member
+  lifecycle {
+    destroy = false
+  }
 }

@@ -27,6 +27,12 @@ operator service.
   hand; the README lists every secret, who reads it and the command to set it.
 - **Deploys don't need `terraform apply`.** Terraform owns service config and ignores
   the image; CI deploys new images with `gcloud run deploy`.
+  - **Superseded (2026-10-04, branch `refactor/cloud-run-out-of-terraform`):** Terraform no
+    longer owns the Cloud Run services or the pipeline job. GitHub Actions creates and
+    deploys `lir-agent` / `lir-agent-cases` (`lir-deploy` gets project-level
+    `run.developer`), the job is created by hand; `removed` blocks keep the live
+    resources. Two-phase apply: `agent_service_deployed` / `cases_service_url` gate the
+    service-scoped IAM, gateway and push subscription. Settings live in the README.
 - `terraform apply` is run only after the user approves.
 
 ## Tasks

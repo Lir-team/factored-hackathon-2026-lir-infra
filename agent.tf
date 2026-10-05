@@ -1,4 +1,9 @@
 # Agent HTTP API on Cloud Run, protected by IAP, reading the data lake from Cloud Storage.
+#
+# The Cloud Run service itself is deployed by GitHub Actions on the agent repository, not by
+# Terraform (see README, "Cloud Run is deployed outside Terraform"). Terraform owns its
+# runtime account, secrets, data bucket and the service-scoped IAP/invoker IAM; the env maps
+# below are exported as outputs so the workflow deploys with the same configuration.
 
 locals {
   image_registry = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_repository_id}"
@@ -56,7 +61,6 @@ locals {
   )
 
   iap_members = toset(concat(keys(var.team_members), var.iap_members))
-  deploy      = var.agent_image != ""
 }
 
 resource "google_artifact_registry_repository" "images" {
@@ -113,100 +117,14 @@ resource "google_secret_manager_secret_iam_member" "agent" {
 
 # ---- service ----------------------------------------------------------------------------
 
-resource "google_cloud_run_v2_service" "agent" {
-  count    = local.deploy ? 1 : 0
-  provider = google-beta
-
-  name                = var.agent_service_name
-  location            = var.region
-  ingress             = "INGRESS_TRAFFIC_ALL"
-  iap_enabled         = true
-  deletion_protection = false
-
-  template {
-    service_account       = google_service_account.agent.email
-    execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
-
-    scaling {
-      min_instance_count = 0
-      max_instance_count = var.agent_max_instances
-    }
-
-    containers {
-      image = var.agent_image
-
-      ports {
-        container_port = 8080
-      }
-
-      resources {
-        limits = {
-          cpu    = "1"
-          memory = "1Gi"
-        }
-      }
-
-      dynamic "env" {
-        for_each = local.agent_env
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
-
-      dynamic "env" {
-        for_each = local.agent_secret_env
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.this[env.value].secret_id
-              version = "latest"
-            }
-          }
-        }
-      }
-
-      volume_mounts {
-        name       = "data"
-        mount_path = "/mnt/data"
-      }
-
-      startup_probe {
-        http_get {
-          path = "/health"
-        }
-      }
-    }
-
-    volumes {
-      name = "data"
-      gcs {
-        bucket    = google_storage_bucket.data.name
-        read_only = true
-      }
-    }
-  }
+# The service moved to GitHub Actions. Forget it without destroying the live service; this
+# block can be deleted once every state that held the resource has been applied.
+removed {
+  from = google_cloud_run_v2_service.agent
 
   lifecycle {
-    # CI deploys new images with `gcloud run deploy`, which also stamps the client fields
-    # and names the revision; Terraform owns the rest of the configuration. agent_image is
-    # only used when the service is first created. Service-level scaling is filled by the
-    # API with zero defaults (instances are bounded in template.scaling); ignoring it keeps
-    # plans free of no-op diffs.
-    ignore_changes = [
-      template[0].containers[0].image,
-      template[0].revision,
-      client,
-      client_version,
-      scaling,
-    ]
+    destroy = false
   }
-
-  depends_on = [
-    google_secret_manager_secret_iam_member.agent,
-    google_storage_bucket_iam_member.agent_reads_data,
-  ]
 }
 
 # ---- IAP --------------------------------------------------------------------------------
@@ -219,20 +137,21 @@ resource "google_project_service_identity" "iap" {
 }
 
 # IAP forwards authenticated requests with its own identity.
+# Service-scoped (least privilege): only created once the service exists (two-phase apply).
 resource "google_cloud_run_v2_service_iam_member" "iap_invoker" {
-  count = local.deploy ? 1 : 0
+  count = var.agent_service_deployed ? 1 : 0
 
-  name     = google_cloud_run_v2_service.agent[0].name
+  name     = var.agent_service_name
   location = var.region
   role     = "roles/run.invoker"
   member   = google_project_service_identity.iap.member
 }
 
 resource "google_iap_web_cloud_run_service_iam_member" "users" {
-  for_each = local.deploy ? local.iap_members : toset([])
+  for_each = var.agent_service_deployed ? local.iap_members : toset([])
 
   location               = var.region
-  cloud_run_service_name = google_cloud_run_v2_service.agent[0].name
+  cloud_run_service_name = var.agent_service_name
   role                   = "roles/iap.httpsResourceAccessor"
   member                 = "user:${each.value}"
 }

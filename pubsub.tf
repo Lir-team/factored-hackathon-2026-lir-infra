@@ -33,7 +33,7 @@ resource "google_service_account" "pubsub_push" {
 }
 
 resource "google_pubsub_subscription" "cases_push" {
-  count = local.deploy ? 1 : 0
+  count = local.cases_deployed ? 1 : 0
 
   name  = "lir-cases-push"
   topic = google_pubsub_topic.cases.id
@@ -43,7 +43,7 @@ resource "google_pubsub_subscription" "cases_push" {
   enable_message_ordering = true
 
   push_config {
-    push_endpoint = "${google_cloud_run_v2_service.cases[0].uri}/pubsub/push"
+    push_endpoint = "${var.cases_service_url}/pubsub/push"
 
     oidc_token {
       service_account_email = google_service_account.pubsub_push.email
@@ -95,7 +95,7 @@ resource "google_pubsub_topic_iam_member" "pubsub_dead_letters" {
 }
 
 resource "google_pubsub_subscription_iam_member" "pubsub_forwards_dead_letters" {
-  count = local.deploy ? 1 : 0
+  count = local.cases_deployed ? 1 : 0
 
   subscription = google_pubsub_subscription.cases_push[0].name
   role         = "roles/pubsub.subscriber"
