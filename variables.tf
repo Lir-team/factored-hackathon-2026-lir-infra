@@ -256,7 +256,7 @@ variable "cases_service_url" {
 variable "customer_sign_in" {
   description = "Require the customer's JWT (mock bank sign-in, identity.tf) on the case flow: filing cases and approving actions (SEC-01, SEC-04)."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "customer_jwt_audience" {

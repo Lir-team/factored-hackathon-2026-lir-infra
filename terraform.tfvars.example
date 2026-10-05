@@ -31,7 +31,7 @@ team_members = {
 # cases_retention_days        = 0   # 0 keeps archived cases forever
 
 # Case flow service (lir-agent-cases) and gateway.
-# customer_sign_in       = false  # true: customer JWT required to file cases and approve (SEC-01/04)
+# customer_sign_in       = true   # false only for local tests: the payload's customer_id is trusted
 # customer_jwt_audience  = "lir-web"
 # approval_link_template = "https://<lir-web host>/aprobar.html?id={approval_id}&t={token}"
 # telegram_bot_username = "lir_bank_bot"            # without "@"; empty: no start link
