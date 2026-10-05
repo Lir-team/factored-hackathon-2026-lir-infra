@@ -267,6 +267,23 @@ variable "customer_jwt_audience" {
   default     = "lir-web"
 }
 
+variable "demo_sign_in_customer_id" {
+  description = "Customer the demo bank sign-in (POST /v1/demo/sign-in) issues short-lived JWTs for, so lir-web needs no fixed token. Empty: no demo sign-in."
+  type        = string
+  default     = ""
+}
+
+variable "demo_sign_in_ttl_minutes" {
+  description = "Lifetime of a demo sign-in token (IAM signJwt allows at most 720)."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.demo_sign_in_ttl_minutes > 0 && var.demo_sign_in_ttl_minutes <= 720
+    error_message = "demo_sign_in_ttl_minutes must be between 1 and 720."
+  }
+}
+
 variable "approval_link_template" {
   description = "lir-web approval card link, e.g. https://web.example/aprobar.html?id={approval_id}&t={token}. Empty: no web link."
   type        = string

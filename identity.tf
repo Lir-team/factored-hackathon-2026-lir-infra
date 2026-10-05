@@ -20,7 +20,18 @@ resource "google_service_account_iam_member" "demo_idp_signers" {
   member             = "user:${each.value}"
 }
 
+# The demo bank sign-in: the case flow service signs short-lived customer tokens as the
+# issuer, for the one customer in var.demo_sign_in_customer_id.
+resource "google_service_account_iam_member" "cases_signs_demo_tokens" {
+  count = local.demo_sign_in ? 1 : 0
+
+  service_account_id = google_service_account.demo_idp.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = google_service_account.cases.member
+}
+
 locals {
+  demo_sign_in          = var.demo_sign_in_customer_id != ""
   customer_jwt_issuer   = google_service_account.demo_idp.email
   customer_jwt_jwks_uri = "https://www.googleapis.com/service_accounts/v1/jwk/${google_service_account.demo_idp.email}"
 }

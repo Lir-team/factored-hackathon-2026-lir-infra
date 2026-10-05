@@ -66,6 +66,12 @@ locals {
       PUBSUB_PUSH_SERVICE_ACCOUNT = google_service_account.pubsub_push.email
     },
     var.telegram_bot_username == "" ? {} : { TELEGRAM_BOT_USERNAME = var.telegram_bot_username },
+    local.demo_sign_in ? {
+      DEMO_SIGN_IN_CUSTOMER_ID = var.demo_sign_in_customer_id
+      DEMO_SIGN_IN_ISSUER      = local.customer_jwt_issuer
+      DEMO_SIGN_IN_AUDIENCE    = var.customer_jwt_audience
+      DEMO_SIGN_IN_TTL_MINUTES = tostring(var.demo_sign_in_ttl_minutes)
+    } : {},
     var.speech_to_text_enabled ? { SPEECH_TO_TEXT = "google" } : {},
     # Link to the approval card in lir-web; Telegram only opens https links from a button.
     var.approval_link_template == "" ? {} : { APPROVAL_LINK_TEMPLATE = var.approval_link_template },
