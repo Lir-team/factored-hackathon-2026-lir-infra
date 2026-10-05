@@ -161,6 +161,18 @@ After the apply that creates the gateway:
 
    Set `telegram_bot_username` (without `@`) so the `202` answer carries the start link.
 
+3. Optional, voice notes: set `speech_to_text_enabled = true` and apply. It grants
+   `roles/speech.client` to `cases_service_account` and adds `SPEECH_TO_TEXT=google` to
+   `cases_env` (`speech.googleapis.com` is always enabled). The deploy workflow only changes
+   the image, so set the variable on the running service once:
+
+   ```bash
+   gcloud run services update lir-agent-cases --region us-east1 --project lir-agent \
+     --update-env-vars SPEECH_TO_TEXT=google
+   ```
+
+   Voice notes up to 60 s are transcribed (`es-US`, `pt-BR`) and answered like typed text.
+
 ## Cloud Run is deployed outside Terraform
 
 Since 2026-10-04 Terraform no longer owns `lir-agent`, `lir-agent-cases` (GitHub Actions
