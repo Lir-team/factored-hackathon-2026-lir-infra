@@ -59,6 +59,11 @@ locals {
         CASE
           WHEN event = 'tool_result' AND JSON_VALUE(payload, '$.tool') = 'open_dispute'
             AND JSON_VALUE(payload, '$.status') = 'verified' THEN 'dispute_opened'
+          -- Disputes open when their last approver (the specialist) approves.
+          WHEN event = 'approval_decided'
+            AND JSON_VALUE(payload, '$.result.dispute_case_id') IS NOT NULL THEN 'dispute_opened'
+          WHEN event = 'approval_decided' AND JSON_VALUE(payload, '$.decision') = 'rejected'
+            THEN CONCAT('rejected_by_', JSON_VALUE(payload, '$.role'))
           WHEN event = 'handoff_created' THEN 'handoff'
           WHEN event = 'output_blocked' THEN 'reply_blocked'
           WHEN event = 'tool_denied' THEN 'tool_denied'
@@ -66,12 +71,19 @@ locals {
           WHEN event = 'decision_fallback' THEN 'decision_fallback'
           WHEN event = 'handoff_report_viewed' THEN 'report_viewed'
         END AS outcome,
-        COALESCE(JSON_VALUE(payload, '$.trigger'), JSON_VALUE(payload, '$.reason')) AS detail
+        COALESCE(
+          JSON_VALUE(payload, '$.trigger'),
+          JSON_VALUE(payload, '$.reason'),
+          JSON_VALUE(payload, '$.result.dispute_case_id')
+        ) AS detail
       FROM `${var.project_id}.${google_bigquery_dataset.analytics.dataset_id}.audit_events`
       WHERE event IN ('tool_result', 'handoff_created', 'output_blocked', 'tool_denied',
-                      'session_refused', 'decision_fallback', 'handoff_report_viewed')
+                      'session_refused', 'decision_fallback', 'handoff_report_viewed',
+                      'approval_decided')
         AND NOT (event = 'tool_result' AND (JSON_VALUE(payload, '$.tool') != 'open_dispute'
                  OR JSON_VALUE(payload, '$.status') != 'verified'))
+        AND NOT (event = 'approval_decided' AND JSON_VALUE(payload, '$.decision') = 'approved'
+                 AND JSON_VALUE(payload, '$.result.dispute_case_id') IS NULL)
     SQL
 
     sessions = <<-SQL
