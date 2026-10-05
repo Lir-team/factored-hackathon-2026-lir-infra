@@ -64,6 +64,8 @@ locals {
             AND JSON_VALUE(payload, '$.result.dispute_case_id') IS NOT NULL THEN 'dispute_opened'
           WHEN event = 'approval_decided' AND JSON_VALUE(payload, '$.decision') = 'rejected'
             THEN CONCAT('rejected_by_', JSON_VALUE(payload, '$.role'))
+          -- A specialist resolved an escalated case (the customer's claim accepted or not).
+          WHEN event = 'handoff_resolved' THEN CONCAT('claim_', JSON_VALUE(payload, '$.decision'))
           WHEN event = 'handoff_created' THEN 'handoff'
           WHEN event = 'output_blocked' THEN 'reply_blocked'
           WHEN event = 'tool_denied' THEN 'tool_denied'
@@ -79,7 +81,7 @@ locals {
       FROM `${var.project_id}.${google_bigquery_dataset.analytics.dataset_id}.audit_events`
       WHERE event IN ('tool_result', 'handoff_created', 'output_blocked', 'tool_denied',
                       'session_refused', 'decision_fallback', 'handoff_report_viewed',
-                      'approval_decided')
+                      'approval_decided', 'handoff_resolved')
         AND NOT (event = 'tool_result' AND (JSON_VALUE(payload, '$.tool') != 'open_dispute'
                  OR JSON_VALUE(payload, '$.status') != 'verified'))
         AND NOT (event = 'approval_decided' AND JSON_VALUE(payload, '$.decision') = 'approved'
