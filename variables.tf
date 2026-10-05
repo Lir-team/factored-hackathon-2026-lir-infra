@@ -302,8 +302,20 @@ variable "github_repository" {
   default     = "Lir-team/factored-hackathon-2026-lir-agent"
 }
 
+variable "web_github_repository" {
+  description = "GitHub repository (owner/name) of lir-web, whose main branch deploys the frontend."
+  type        = string
+  default     = "Lir-team/lir-web"
+}
+
+variable "web_repository" {
+  description = "Artifact Registry repository for the lir-web images."
+  type        = string
+  default     = "lir-web"
+}
+
 variable "deploy_branch" {
-  description = "Only workflows running on this branch of github_repository may deploy."
+  description = "Only workflows running on this branch of github_repository (and lir-web) may deploy."
   type        = string
   default     = "main"
 }
