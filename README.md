@@ -111,6 +111,11 @@ members mint demo tokens through the IAM API, without downloading any key:
 scripts/issue-demo-token.sh CLI-DEMO-001        # prints a JWT for that customer (60 min)
 ```
 
+IAM `signJwt` caps a token at 12 hours, so the deployed lir-web does not carry one: with
+`demo_sign_in_customer_id` set, the case flow service answers `POST /v1/demo/sign-in` (API key
+only) with a fresh short-lived token for that customer, and lir-web asks for it on load
+(`LIR_SIGN_IN_ENDPOINT`).
+
 Set `customer_sign_in = true` to enforce it:
 
 | Route | Without sign-in | With `customer_sign_in` |
@@ -207,7 +212,7 @@ Read the values with `terraform output` (`-json` for maps). Both services:
 | Scaling | `--min-instances 0 --max-instances 1` (sessions in memory) | same |
 | Resources | `--cpu 1 --memory 1Gi --port 8080`, `--execution-environment gen2` | same |
 | Data lake | `--add-volume name=data,type=cloud-storage,bucket=<data_bucket>,readonly=true --add-volume-mount volume=data,mount-path=/mnt/data` | same |
-| Startup probe | HTTP `GET /health` | same |
+| Startup probe | HTTP `GET /health`, `periodSeconds=10`, `failureThreshold=12` (the data bucket mount can take over 30 s) | same |
 
 `lir-deploy` has `roles/run.developer` on the project (it must create the services) but
 cannot set IAM: never pass `--allow-unauthenticated`. Invokers and IAP users come from
