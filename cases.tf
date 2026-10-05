@@ -119,6 +119,13 @@ resource "google_project_iam_member" "cases_uses_firestore" {
   member  = google_service_account.cases.member
 }
 
+# The operator service opens case files (handoffs) created by the case flow service.
+resource "google_project_iam_member" "agent_uses_firestore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = google_service_account.agent.member
+}
+
 resource "google_secret_manager_secret_iam_member" "cases" {
   for_each = toset(values(local.cases_secret_env))
 
