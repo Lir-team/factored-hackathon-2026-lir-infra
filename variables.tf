@@ -68,6 +68,9 @@ variable "enabled_apis" {
     "logging.googleapis.com",
     # Telegram voice notes: transcribed by the case flow service (speech_to_text_enabled).
     "speech.googleapis.com",
+    # Alerts and uptime checks (monitoring.tf); request traces of the agent (TRACE_TO_CLOUD).
+    "monitoring.googleapis.com",
+    "cloudtrace.googleapis.com",
   ]
 }
 
@@ -373,3 +376,29 @@ variable "pipeline_job_name" {
   default     = "lir-pipeline"
 }
 
+
+# ---- monitoring --------------------------------------------------------------------------
+
+variable "monitoring_enabled" {
+  description = "Create the Cloud Monitoring alerts (dead-letter, case flow errors, lir-web uptime) and their email channels."
+  type        = bool
+  default     = false
+}
+
+variable "alert_emails" {
+  description = "Who gets the alerts by email. Empty: every team member."
+  type        = list(string)
+  default     = []
+}
+
+variable "web_url" {
+  description = "Public URL of lir-web for the uptime check, e.g. https://lir-web-<hash>.us-east1.run.app. Empty: no uptime check."
+  type        = string
+  default     = ""
+}
+
+variable "error_alert_threshold" {
+  description = "Server errors (5xx) in 5 minutes on the case flow service that raise an alert."
+  type        = number
+  default     = 3
+}
