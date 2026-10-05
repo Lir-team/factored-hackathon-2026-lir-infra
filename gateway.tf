@@ -44,6 +44,7 @@ resource "google_api_gateway_api_config" "cases" {
         jwt_issuer       = local.customer_jwt_issuer
         jwt_jwks_uri     = local.customer_jwt_jwks_uri
         jwt_audience     = var.customer_jwt_audience
+        demo_sign_in     = local.demo_sign_in
       }))
     }
   }

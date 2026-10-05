@@ -63,6 +63,27 @@ paths:
       responses:
         "200":
           description: CORS headers for the allowed origins.
+%{ if demo_sign_in ~}
+  # The demo bank sign-in: a short-lived customer JWT for lir-web (the API key only; it is
+  # the sign-in itself). A real bank replaces it with its identity provider.
+  /v1/demo/sign-in:
+    post:
+      operationId: demoSignIn
+      summary: Demo bank sign-in, a short-lived customer JWT.
+      security:
+        - api_key: []
+      responses:
+        "200":
+          description: The token and when it expires.
+        default:
+          description: Error answered by the agent.
+    options:
+      operationId: demoSignInPreflight
+      summary: CORS preflight, answered by the service.
+      responses:
+        "200":
+          description: CORS headers for the allowed origins.
+%{ endif ~}
   # The signed-in customer's latest transactions for lir-web; the customer comes from the JWT.
   /v1/me/transactions:
     get:
