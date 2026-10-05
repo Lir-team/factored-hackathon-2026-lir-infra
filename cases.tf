@@ -53,35 +53,26 @@ locals {
       APPROVAL_REQUIRES_SIGN_IN = var.customer_sign_in ? "true" : "false"
       # lir-web runs on a laptop; the gateway passes CORS through (allowCors) to the service.
       CORS_ORIGINS = var.cors_origins
+      # The back office is only for specialists, behind IAP on the operator service.
+      BACKOFFICE_ENABLED = "false"
 
       CASES_INBOX  = "gcs"
       CASES_BUCKET = google_storage_bucket.cases.name
 
-      CASES_PUBLISHER      = "pubsub"
-      GOOGLE_CLOUD_PROJECT = var.project_id
-      CASES_TOPIC          = google_pubsub_topic.cases.name
+      CASES_PUBLISHER = "pubsub"
+      CASES_TOPIC     = google_pubsub_topic.cases.name
 
       PUBSUB_PUSH_AUDIENCE        = local.cases_push_audience
       PUBSUB_PUSH_SERVICE_ACCOUNT = google_service_account.pubsub_push.email
-
-      CASE_STORE                  = "firestore"
-      FIRESTORE_DATABASE          = google_firestore_database.default.name
-      FIRESTORE_COLLECTION_PREFIX = var.firestore_collection_prefix
     },
     var.telegram_bot_username == "" ? {} : { TELEGRAM_BOT_USERNAME = var.telegram_bot_username },
     # Link to the approval card in lir-web; Telegram only opens https links from a button.
     var.approval_link_template == "" ? {} : { APPROVAL_LINK_TEMPLATE = var.approval_link_template },
   )
 
-  # The Telegram secrets are mounted only once they hold a version (telegram_enabled);
-  # without them the agent starts and simply leaves /channels/telegram unregistered.
-  cases_secret_env = merge(
-    local.agent_secret_env,
-    var.telegram_enabled ? {
-      TELEGRAM_BOT_TOKEN      = "telegram_bot_token"
-      TELEGRAM_WEBHOOK_SECRET = "telegram_webhook_secret"
-    } : {},
-  )
+  # The Telegram secrets (agent_secret_env) are mounted only once they hold a version
+  # (telegram_enabled); without them the agent starts and leaves /channels/telegram off.
+  cases_secret_env = local.agent_secret_env
 }
 
 # ---- runtime identity -------------------------------------------------------------------
