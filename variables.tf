@@ -402,3 +402,9 @@ variable "error_alert_threshold" {
   type        = number
   default     = 3
 }
+
+variable "trace_enabled" {
+  description = "Export the agent's traces to Cloud Trace (TRACE_TO_CLOUD) and let both runtime accounts write them."
+  type        = bool
+  default     = false
+}

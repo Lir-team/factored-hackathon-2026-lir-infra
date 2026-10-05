@@ -68,6 +68,8 @@ locals {
     var.reference_date == "" ? {} : { REFERENCE_DATE = var.reference_date },
     # Operator API behind IAP only: return how each turn was decided with the reply.
     var.expose_trace ? { EXPOSE_TRACE = "true" } : {},
+    # Google ADK's spans (each turn, LLM call and tool) to Cloud Trace.
+    var.trace_enabled ? { TRACE_TO_CLOUD = "true" } : {},
     var.public_base_url == "" ? {} : { PUBLIC_BASE_URL = var.public_base_url },
     var.slack_assignees == "" ? {} : { SLACK_ASSIGNEES = var.slack_assignees },
     # Examples in the API docs: a customer that exists in the data the service reads.
