@@ -152,7 +152,7 @@ resource "google_bigquery_table" "eval_trials" {
   dataset_id          = google_bigquery_dataset.analytics.dataset_id
   table_id            = "eval_trials"
   description         = "One row per evaluation trial (app/evals), uploaded after each run."
-  deletion_protection = false
+  deletion_protection = true
 
   time_partitioning {
     type  = "DAY"

@@ -31,7 +31,8 @@ resource "google_storage_bucket" "cases" {
 
 locals {
   # The cases service runs the same image as the operator API with the case flow switched
-  # on. GitHub Actions deploys it with cases_env / cases_secret_env (outputs). Pub/Sub signs each push with an OIDC token for this audience. It is a fixed string,
+  # on. GitHub Actions deploys it with cases_env / cases_secret_env (outputs).
+  # Pub/Sub signs each push with an OIDC token for this audience. It is a fixed string,
   # not the service URL: the URL only exists after the service is created, so the service
   # could not receive it in its own environment. Cloud Run accepts it because it is listed
   # in `custom_audiences`, and the agent checks it again (PUBSUB_PUSH_AUDIENCE).
@@ -126,13 +127,6 @@ resource "google_project_iam_member" "cases_uses_speech" {
   member  = google_service_account.cases.member
 }
 
-# The operator service opens case files (handoffs) created by the case flow service.
-resource "google_project_iam_member" "agent_uses_firestore" {
-  project = var.project_id
-  role    = "roles/datastore.user"
-  member  = google_service_account.agent.member
-}
-
 resource "google_secret_manager_secret_iam_member" "cases" {
   for_each = toset(values(local.cases_secret_env))
 
@@ -142,16 +136,6 @@ resource "google_secret_manager_secret_iam_member" "cases" {
 }
 
 # ---- service ----------------------------------------------------------------------------
-
-# The service moved to GitHub Actions. Forget it without destroying the live service; this
-# block can be deleted once every state that held the resource has been applied.
-removed {
-  from = google_cloud_run_v2_service.cases
-
-  lifecycle {
-    destroy = false
-  }
-}
 
 # Public network path, private IAM: only the gateway and the Pub/Sub push accounts hold
 # run.invoker, so every other request is rejected by Cloud Run before the agent sees it.

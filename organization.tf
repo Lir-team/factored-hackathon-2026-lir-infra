@@ -9,11 +9,6 @@ resource "google_folder" "team" {
   deletion_protection = true
 }
 
-import {
-  to = google_project.this
-  id = var.project_id
-}
-
 resource "google_project" "this" {
   project_id      = var.project_id
   name            = var.project_name

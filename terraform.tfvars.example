@@ -7,12 +7,12 @@ folder_display_name = "lir"
 billing_account     = "000000-000000-000000"
 region              = "us-east1"
 
-# Additive project roles per Google account. roles/editor lets teammates view and use
-# every resource without managing IAM; replace it with narrower roles if preferred.
+# Additive project roles per Google account. Prefer narrow roles; roles/owner is rejected.
 team_members = {
-  "teammate.one@example.com" = ["roles/editor"]
-  "teammate.two@example.com" = ["roles/editor"]
+  "teammate.one@example.com" = ["roles/run.developer", "roles/logging.viewer"]
+  "teammate.two@example.com" = ["roles/pubsub.editor", "roles/storage.objectAdmin"]
 }
+# iap_members = ["reviewer@example.com"]   # extra accounts allowed through IAP
 
 # Cloud Run services are deployed by GitHub Actions, not Terraform (README). Leave these
 # unset on the first apply; set them once the workflow has deployed both services.
@@ -41,3 +41,29 @@ team_members = {
 # CI deploys through Workload Identity Federation.
 # github_repository = "Lir-team/factored-hackathon-2026-lir-agent"
 # deploy_branch     = "main"
+# web_github_repository = "Lir-team/factored-hackathon-2026-lir-web"
+# web_repository        = "lir-web"
+
+# Channels and notices.
+# telegram_enabled  = true    # once telegram-bot-token and telegram-webhook-secret hold a version
+# slack_enabled     = true    # once slack-webhook-url holds a version
+# slack_assignees   = "U0123,U0456"   # Slack member ids that take handoffs in rotation
+# public_base_url   = "https://lir-agent-<hash>-ue.a.run.app"   # case file links in Slack
+# expose_trace      = true    # operator API returns how each turn was decided
+
+# Demo bank sign-in: lir-web gets short-lived customer tokens from the case flow service.
+# demo_sign_in_customer_id = "CLI-0000000000"
+# demo_sign_in_ttl_minutes = 60
+
+# Analytics and observability.
+# analytics_views_enabled = true   # after the log sink exported its first entry
+# monitoring_enabled      = true
+# alert_emails            = ["oncall@example.com"]   # empty: every team member
+# web_url                 = "https://lir-web-<hash>.us-east1.run.app"
+# error_alert_threshold   = 3
+# trace_enabled           = true
+
+# Agent details shown in the API docs and used to replay a static data snapshot.
+# reference_date          = "2026-06-18"   # the date the agent treats as today; empty: today
+# api_example_customer_id = "CLI-0000000000"
+# api_example_message     = "No reconozco un cargo de 245.50 en OXXO"

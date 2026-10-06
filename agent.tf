@@ -108,6 +108,11 @@ resource "google_secret_manager_secret" "this" {
     auto {}
   }
 
+  # Destroying a secret wipes the value added by hand: never by accident.
+  lifecycle {
+    prevent_destroy = true
+  }
+
   depends_on = [google_project_service.enabled]
 }
 
@@ -133,16 +138,6 @@ resource "google_secret_manager_secret_iam_member" "agent" {
 }
 
 # ---- service ----------------------------------------------------------------------------
-
-# The service moved to GitHub Actions. Forget it without destroying the live service; this
-# block can be deleted once every state that held the resource has been applied.
-removed {
-  from = google_cloud_run_v2_service.agent
-
-  lifecycle {
-    destroy = false
-  }
-}
 
 # ---- IAP --------------------------------------------------------------------------------
 
@@ -171,4 +166,11 @@ resource "google_iap_web_cloud_run_service_iam_member" "users" {
   cloud_run_service_name = var.agent_service_name
   role                   = "roles/iap.httpsResourceAccessor"
   member                 = "user:${each.value}"
+}
+
+# The operator service opens case files and decides approvals the case flow service wrote.
+resource "google_project_iam_member" "agent_uses_firestore" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = google_service_account.agent.member
 }

@@ -99,12 +99,3 @@ resource "google_artifact_registry_repository_iam_member" "deploy_reads_images" 
   member     = google_service_account.deploy.member
 }
 
-# Replaced by the project-level run.developer above. Forget the old service-scoped bindings
-# without destroying them; they are redundant now and can be removed by hand.
-removed {
-  from = google_cloud_run_v2_service_iam_member.deploy_rolls_out
-
-  lifecycle {
-    destroy = false
-  }
-}
