@@ -73,18 +73,6 @@ resource "google_monitoring_alert_policy" "cases_errors" {
   }
 }
 
-# Both runtime accounts write the agent's traces (TRACE_TO_CLOUD).
-resource "google_project_iam_member" "writes_traces" {
-  for_each = var.trace_enabled ? {
-    agent = google_service_account.agent.member
-    cases = google_service_account.cases.member
-  } : {}
-
-  project = var.project_id
-  role    = "roles/cloudtrace.agent"
-  member  = each.value
-}
-
 # The public page the customers (and the jury) open.
 resource "google_monitoring_uptime_check_config" "web" {
   count = var.monitoring_enabled && var.web_url != "" ? 1 : 0

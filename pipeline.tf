@@ -34,12 +34,3 @@ resource "google_secret_manager_secret_iam_member" "pipeline" {
   member    = google_service_account.pipeline.member
 }
 
-# The job is now created by hand. Forget it without destroying the live job; this block can
-# be deleted once every state that held the resource has been applied.
-removed {
-  from = google_cloud_run_v2_job.pipeline
-
-  lifecycle {
-    destroy = false
-  }
-}

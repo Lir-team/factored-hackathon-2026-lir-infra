@@ -4,8 +4,11 @@
 
 Terraform for the `lir-agent` GCP project of team Lir (Factored AI & Data Hackathon 2026).
 The agent, the evals and the data pipeline live in
-[factored-hackathon-2026-lir-agent](https://github.com/Lir-team/factored-hackathon-2026-lir-agent);
+[factored-hackathon-2026-lir-agent](https://github.com/Lir-team/factored-hackathon-2026-lir-agent)
+and the bank's web page in
+[factored-hackathon-2026-lir-web](https://github.com/Lir-team/factored-hackathon-2026-lir-web);
 infrastructure is kept in its own repository so its changes are reviewed and applied on their own.
+The architecture diagram is in the agent repository's README.
 
 ## What is managed
 
@@ -15,7 +18,7 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Team access | Additive IAM bindings per teammate (`team_members`) | `main.tf` |
 | APIs | Every API in `enabled_apis` (never disabled on destroy) | `main.tf`, `variables.tf` |
 | Images and builds | Artifact Registry repository `lir`, build service account `lir-build`, build source bucket `<project>-build-source` (objects deleted after 7 days) | `agent.tf`, `build.tf` |
-| Operator API | Runtime account `lir-agent-run`, IAP access to the `lir-agent` service (deployed by GitHub Actions), data lake bucket `<project>-data` | `agent.tf` |
+| Operator API | Runtime account `lir-agent-run`, IAP access to the `lir-agent` service (deployed by GitHub Actions), data lake bucket `<project>-data`, Firestore access to the shared case files and approvals | `agent.tf` |
 | Secrets | Secret Manager containers only: values are added by hand (see [Secrets](#secrets)) | `agent.tf` |
 | Case store | Firestore `(default)` database (native mode, delete protection on) with TTL on `expires_at` of `lir_claims` and `lir_start_tokens` | `firestore.tf` |
 | Data pipeline | Runtime account `lir-pipeline-run` of the `lir-pipeline` job (created by hand), only writer of the data bucket | `pipeline.tf` |
@@ -23,14 +26,18 @@ infrastructure is kept in its own repository so its changes are reviewed and app
 | Case flow service | Runtime account `lir-agent-cases-run`, `run.invoker` for the gateway and Pub/Sub on `lir-agent-cases` (deployed by GitHub Actions) | `cases.tf` |
 | Case queue | Topic `lir-cases`, push subscription `lir-cases-push` (signed as `lir-pubsub-push`), dead-letter topic and subscription `lir-cases-dead-letter` | `pubsub.tf` |
 | Public gateway | API Gateway `lir-cases` (spec in `openapi/cases.yaml.tftpl`), backend account `lir-gateway`, API key `lir-cases-web` | `gateway.tf` |
-| CI deploys | Workload Identity pool `github` with provider `lir-team` (agent repository, `main` only), deploy account `lir-deploy` | `ci.tf` |
+| Customer sign-in | Demo identity provider `lir-demo-idp` (signs customer JWTs through the IAM API); the case flow service may sign short-lived tokens for the demo sign-in | `identity.tf` |
+| CI deploys | Workload Identity pool `github`: provider `lir-team` for the agent repository (deploy account `lir-deploy`) and provider `lir-web` for the web repository (deploy account `lir-web-sa`, registry `lir-web`); `main` only | `ci.tf`, `web.tf` |
+| Analytics | Log sink of the audit trail into BigQuery `lir_analytics`, views (`audit_events`, `turns`, `outcomes`, `sessions`, `daily_kpis`), `eval_trials` table | `analytics.tf` |
+| Monitoring | Email alerts for a case in the dead-letter subscription, server errors in the case flow, and lir-web downtime (uptime check) | `monitoring.tf` |
+| Traces | `roles/cloudtrace.agent` for both runtime accounts (`TRACE_TO_CLOUD`) | `trace.tf` |
 
-Cloud Run itself (the two services and the pipeline job) is **not** managed here: see
+Cloud Run itself (`lir-agent`, `lir-agent-cases`, `lir-web` and the pipeline job) is **not** managed here: see
 [Cloud Run is deployed outside Terraform](#cloud-run-is-deployed-outside-terraform).
 
 ## Prerequisites
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.7 (`removed` blocks)
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.7
 - `gcloud` signed in with an account that can manage IAM on the project
 - Application Default Credentials for Terraform:
 
@@ -98,8 +105,9 @@ printf %s "$VALUE" | gcloud secrets versions add <secret id> --data-file=- --pro
 | `cloudflare-api-token` | `CLOUDFLARE_API_TOKEN` | `lir-agent`, `lir-agent-cases` | `jev_enabled = true` | Cloudflare → API tokens (Workers AI) |
 | `aws-access-key-id` | `AWS_ACCESS_KEY_ID` | `lir-pipeline` job | data pipeline | Data dictionary of the organizers (never commit it) |
 | `aws-secret-access-key` | `AWS_SECRET_ACCESS_KEY` | `lir-pipeline` job | data pipeline | Data dictionary of the organizers (never commit it) |
-| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent-cases` | `telegram_enabled = true` | BotFather → `/newbot` or `/token` |
-| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent-cases` | `telegram_enabled = true` | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
+| `telegram-bot-token` | `TELEGRAM_BOT_TOKEN` | `lir-agent`, `lir-agent-cases` | `telegram_enabled = true` | BotFather → `/newbot` or `/token` |
+| `telegram-webhook-secret` | `TELEGRAM_WEBHOOK_SECRET` | `lir-agent`, `lir-agent-cases` | `telegram_enabled = true` | Any random string, e.g. `openssl rand -hex 32` (letters, digits, `_` and `-` only) |
+| `slack-webhook-url` | `SLACK_WEBHOOK_URL` | `lir-agent`, `lir-agent-cases` | `slack_enabled = true` | Slack app → Incoming Webhooks → the team channel |
 
 `terraform output secrets` lists every container.
 
@@ -110,7 +118,7 @@ Google publishes its public keys, API Gateway verifies the customer JWTs it sign
 members mint demo tokens through the IAM API, without downloading any key:
 
 ```bash
-scripts/issue-demo-token.sh CLI-DEMO-001        # prints a JWT for that customer (60 min)
+scripts/issue-demo-token.sh CLI-DEMO-001        # a JWT for API tests (curl, Swagger), 60 min
 ```
 
 IAM `signJwt` caps a token at 12 hours, so the deployed lir-web does not carry one: with
@@ -118,15 +126,15 @@ IAM `signJwt` caps a token at 12 hours, so the deployed lir-web does not carry o
 only) with a fresh short-lived token for that customer, and lir-web asks for it on load
 (`LIR_SIGN_IN_ENDPOINT`).
 
-Set `customer_sign_in = true` to enforce it:
+`customer_sign_in` (on by default) enforces it:
 
 | Route | Without sign-in | With `customer_sign_in` |
 |---|---|---|
 | `POST /v1/cases` | API key; the payload's `customer_id` is trusted | API key **and** the customer's JWT; the customer comes from the token (`REQUIRE_IDENTITY=true`) |
 | `GET /v1/approvals/{id}`, `POST .../decision` | the single-use link token | the link token **and** the JWT of that same customer (`APPROVAL_REQUIRES_SIGN_IN=true`); Telegram only links to the card |
 
-Paste the token into lir-web's `js/config.js` as `authToken`. Set `approval_link_template`
-to the `https` URL of lir-web's `aprobar.html` so Telegram can link to the card.
+Set `approval_link_template` to the `https` URL of lir-web's `aprobar.html` so Telegram can
+link to the card.
 
 ## Case flow
 
@@ -139,9 +147,9 @@ Telegram (see `docs/architecture/case-flow.md` in the agent repository).
 | `POST <cases_gateway_url>/channels/telegram` | API Gateway → `lir-agent-cases` | Telegram's `X-Telegram-Bot-Api-Secret-Token`, checked by the agent |
 | `POST <cases_service_url>/pubsub/push` | Pub/Sub push subscription `lir-cases-push` | OIDC token of `lir-pubsub-push` for audience `lir-agent-cases-pubsub-push` |
 
-Only `lir-gateway` and `lir-pubsub-push` can invoke the service; it runs with
-`REQUIRE_IDENTITY=false`, so the form's `customer_id` is trusted (testers switch customers
-freely) and the API key is what stops abuse. A case that fails 5 deliveries goes to
+Only `lir-gateway` and `lir-pubsub-push` can invoke the service. With `customer_sign_in` it
+runs with `REQUIRE_IDENTITY=true`: the customer always comes from the verified JWT, never from
+the form. A case that fails 5 deliveries goes to
 `lir-cases-dead-letter`; read it with
 `gcloud pubsub subscriptions pull lir-cases-dead-letter --limit 10 --project lir-agent`.
 
@@ -182,13 +190,13 @@ After the apply that creates the gateway:
 
 ## Cloud Run is deployed outside Terraform
 
-Since 2026-10-04 Terraform no longer owns `lir-agent`, `lir-agent-cases` (GitHub Actions
-creates and deploys them) or the `lir-pipeline` job (created by hand). `removed` blocks with
-`destroy = false` drop them, and the old service-scoped `run.developer` bindings of
-`lir-deploy`, from the state **without destroying them**. Terraform keeps everything around
-them: runtime accounts, secrets, buckets, registry, Pub/Sub, gateway and the IAM.
+Terraform does not own `lir-agent`, `lir-agent-cases` (GitHub Actions creates and deploys
+them), `lir-web` (its own repository's workflow) or the `lir-pipeline` job (created by hand).
+It keeps everything around them: runtime accounts, secrets, buckets, registry, Pub/Sub,
+gateway, monitoring and the IAM. The env maps are exported as outputs; a change to them
+reaches a service on its next deploy, or at once with `gcloud run services update`.
 
-Apply in two phases:
+Apply in phases:
 
 1. **First apply** with `agent_service_deployed = false` and `cases_service_url = ""`:
    accounts, registry, secrets, buckets, topics and CI identity. Add the secret values.
@@ -197,6 +205,9 @@ Apply in two phases:
 3. **Second apply** with `agent_service_deployed = true` and `cases_service_url` set to the
    cases service URL: service-scoped IAP and `run.invoker` bindings, the API Gateway and the
    Pub/Sub push subscription. Leaving `cases_service_url` empty later would destroy them.
+4. **Later applies**, once there is something to point at: `analytics_views_enabled = true`
+   after the log sink exported its first entry, and `monitoring_enabled` with `web_url` once
+   lir-web is live (the uptime check needs its URL).
 
 ### Service settings the workflow must carry
 
@@ -266,6 +277,39 @@ Variables) on the agent repository; none of them is secret:
 | `BUILD_SA` | `terraform output -raw build_service_account` |
 | `BUILD_BUCKET` | `terraform output -raw build_source_bucket` |
 
+### lir-web deploys
+
+The web repository's workflow signs in through the `lir-web` provider as `lir-web-sa` and
+pushes to the `lir-web` registry. Its repository variables come from these outputs:
+`web_wif_provider`, `web_deploy_service_account` and `web_image_registry`.
+
+## Observability
+
+- **Audit trail and dashboards:** every audit entry of both services lands in BigQuery
+  `lir_analytics` through a log sink; the views feed Looker Studio (see
+  `docs/analytics/looker-studio.md` in the agent repository).
+- **Alerts:** with `monitoring_enabled`, `alert_emails` (or every team member) get an email when
+  a case reaches the dead-letter subscription, when the case flow answers more than
+  `error_alert_threshold` server errors in 5 minutes, and when lir-web fails its uptime check.
+- **Traces:** with `trace_enabled`, both services export Google ADK's spans (each turn, LLM
+  call and tool) to Cloud Trace.
+
+## Costs
+
+Everything scales to zero when idle: Cloud Run (`min-instances 0`), API Gateway and Pub/Sub
+are billed per request, Firestore per operation. The biggest line items are the LLM calls
+(outside Google Cloud), the `lir-pipeline` job while it runs (8 vCPU / 32Gi, a few minutes per
+run) and the log volume exported to BigQuery. Set a budget alert on the billing account.
+
+## Teardown
+
+`terraform destroy` removes most resources but not all, on purpose: the project
+(`deletion_policy = "PREVENT"`), the folder (`deletion_protection`), the Firestore database
+(delete protection), the secrets (`prevent_destroy`) and the `eval_trials` table
+(`deletion_protection`) stay, and so do the Cloud Run services and the pipeline job, which
+Terraform does not manage. Delete those by hand, or shut the whole project down with
+`gcloud projects delete lir-agent`.
+
 ## Organization notes
 
 - The organization allows members from any domain (`iam.allowedPolicyMemberDomains`), so
@@ -282,6 +326,6 @@ Variables) on the agent repository; none of them is secret:
 - Bindings use `google_project_iam_member`, which only adds access: it never removes the
   project owner or roles granted outside Terraform.
 - `roles/owner` is rejected by validation; ownership stays with the project creator.
-- `roles/editor` lets teammates view and use every resource without managing IAM.
-  Narrower roles (for example `roles/run.developer`, `roles/pubsub.editor`,
-  `roles/storage.objectAdmin`) can replace it per person in `terraform.tfvars`.
+- Prefer narrow roles per person in `terraform.tfvars` (for example `roles/run.developer`,
+  `roles/pubsub.editor`, `roles/storage.objectAdmin`, `roles/logging.viewer`).
+  `roles/editor` works for a short hackathon but grants far more than anyone needs.

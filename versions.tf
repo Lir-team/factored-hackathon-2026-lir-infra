@@ -1,5 +1,4 @@
 terraform {
-  # removed blocks (Cloud Run moved out of Terraform) need 1.7.
   required_version = ">= 1.7"
 
   required_providers {

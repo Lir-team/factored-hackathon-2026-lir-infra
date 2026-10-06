@@ -291,6 +291,11 @@ variable "approval_link_template" {
   description = "lir-web approval card link, e.g. https://web.example/aprobar.html?id={approval_id}&t={token}. Empty: no web link."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.approval_link_template == "" || startswith(var.approval_link_template, "https://")
+    error_message = "approval_link_template must be empty or an https URL."
+  }
 }
 
 variable "cors_origins" {
@@ -328,6 +333,11 @@ variable "github_repository" {
   description = "GitHub repository (owner/name) whose workflows may deploy through Workload Identity Federation."
   type        = string
   default     = "Lir-team/factored-hackathon-2026-lir-agent"
+
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be owner/name."
+  }
 }
 
 variable "web_github_repository" {
@@ -376,7 +386,6 @@ variable "pipeline_job_name" {
   default     = "lir-pipeline"
 }
 
-
 # ---- monitoring --------------------------------------------------------------------------
 
 variable "monitoring_enabled" {
@@ -389,18 +398,33 @@ variable "alert_emails" {
   description = "Who gets the alerts by email. Empty: every team member."
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = alltrue([for e in var.alert_emails : can(regex("^[^@\\s]+@[^@\\s]+$", e))])
+    error_message = "alert_emails must be email addresses."
+  }
 }
 
 variable "web_url" {
   description = "Public URL of lir-web for the uptime check, e.g. https://lir-web-<hash>.us-east1.run.app. Empty: no uptime check."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.web_url == "" || startswith(var.web_url, "https://")
+    error_message = "web_url must be empty or an https URL."
+  }
 }
 
 variable "error_alert_threshold" {
   description = "Server errors (5xx) in 5 minutes on the case flow service that raise an alert."
   type        = number
   default     = 3
+
+  validation {
+    condition     = var.error_alert_threshold > 0
+    error_message = "error_alert_threshold must be positive."
+  }
 }
 
 variable "trace_enabled" {

@@ -5,7 +5,7 @@
 #
 # Usage: scripts/issue-demo-token.sh <customer_id> [project_id] [audience] [minutes]
 #   scripts/issue-demo-token.sh CLI-DEMO-001
-# Paste the token into lir-web's js/config.js as authToken.
+# Use it as a Bearer token for API tests (curl, Swagger); the deployed lir-web signs in by itself.
 set -euo pipefail
 
 customer="${1:?customer id, e.g. CLI-DEMO-001}"
